@@ -1,9 +1,7 @@
-use flatbuffers::{FlatBufferBuilder, WIPOffset};
-
 use super::{Array, Validity};
 use crate::{
 	bitmap::ValidityBuffer,
-	fb::{Field, FieldArgs, FixedSizeList, FixedSizeListArgs, Type},
+	schema::{DataType, Field},
 };
 
 pub struct ArrayFixedSizeList<A: Array, V: Validity> {
@@ -26,35 +24,15 @@ impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 		self.validity.null_count()
 	}
 
-	fn serialize_field<'fbb>(
-		&self,
-		builder: &mut FlatBufferBuilder<'fbb>,
-		name: &str,
-	) -> WIPOffset<Field<'fbb>> {
-		let name = builder.create_string(name);
-		let type_union = FixedSizeList::create(
-			builder,
-			&FixedSizeListArgs {
-				listSize: self.size,
+	fn make_field(&self, name: &str) -> Field {
+		Field {
+			name: name.to_owned(),
+			nullable: V::IS_NULLABLE,
+			type_: DataType::FixedSizeList {
+				list_size: self.size,
 			},
-		)
-		.as_union_value();
-
-		let child_field = self.child.serialize_field(builder, "item");
-		let children = builder.create_vector(&[child_field]);
-
-		Field::create(
-			builder,
-			&FieldArgs {
-				name: Some(name),
-				nullable: V::IS_NULLABLE,
-				type_type: Type::FixedSizeList,
-				type_: Some(type_union),
-				children: Some(children),
-				dictionary: None,
-				custom_metadata: None,
-			},
-		)
+			children: vec![self.child.make_field("item")],
+		}
 	}
 
 	fn walk_buffers(&self, f: &mut dyn FnMut(&[u8])) {

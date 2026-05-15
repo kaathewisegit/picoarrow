@@ -1,4 +1,4 @@
-use flatbuffers::{FlatBufferBuilder, WIPOffset};
+use flatbuffers::FlatBufferBuilder;
 #[cfg(feature = "zstd")]
 use zstd::stream::Encoder;
 
@@ -12,17 +12,19 @@ use crate::{
 	array::Array,
 	fb::{
 		BodyCompression, BodyCompressionArgs, BodyCompressionMethod,
-		Buffer, CompressionType, Endianness, Feature, Field, FieldNode,
-		Message, MessageArgs, MessageHeader, MetadataVersion,
-		RecordBatch, RecordBatchArgs, Schema, SchemaArgs,
+		Buffer, CompressionType, FieldNode, Message, MessageArgs,
+		MessageHeader, MetadataVersion, RecordBatch, RecordBatchArgs,
 	},
+	schema::Schema,
 };
 
 pub struct StreamWriter<W> {
 	pub(crate) buf_metadata: Vec<u8>,
 	pub(crate) buf_data: Vec<u8>,
-	compression: Compression,
-	writer: W,
+	pub(crate) schema: Schema,
+	pub(crate) compression: Compression,
+	pub(crate) metadata_written: usize,
+	pub(crate) writer: W,
 }
 
 fn write_continuation<W: Write>(w: &mut W) -> Result<(), IoError> {
@@ -42,11 +44,15 @@ impl<W: Write> StreamWriter<W> {
 		arrays: impl IntoIterator<Item = (&'a str, &'a dyn Array)>,
 		compression: Compression,
 	) -> Result<Self, IoError> {
+		write_continuation(&mut writer)?;
+
+		let schema = Schema::new(arrays);
 		let buf_metadata = Vec::new();
 
-		let builder = write_schema(buf_metadata, arrays);
+		let builder = write_schema(buf_metadata, &schema);
+
 		let schema_data = builder.finished_data();
-		write_continuation(&mut writer)?;
+		let metadata_written = schema_data.len();
 		write_metadata(&mut writer, schema_data)?;
 
 		let (buf_metadata, _) = builder.collapse();
@@ -54,7 +60,9 @@ impl<W: Write> StreamWriter<W> {
 		Ok(Self {
 			buf_metadata,
 			buf_data: Vec::new(),
+			schema,
 			compression,
+			metadata_written,
 			writer,
 		})
 	}
@@ -74,7 +82,11 @@ impl<W: Write> StreamWriter<W> {
 		);
 
 		write_continuation(&mut self.writer)?;
-		write_metadata(&mut self.writer, builder.finished_data())?;
+
+		let metadata_bytes = builder.finished_data();
+		self.metadata_written = metadata_bytes.len();
+		write_metadata(&mut self.writer, metadata_bytes)?;
+
 		self.writer.write_all(&buf_data)?;
 
 		self.buf_metadata = builder.collapse().0;
@@ -83,39 +95,23 @@ impl<W: Write> StreamWriter<W> {
 		Ok(())
 	}
 
+	pub(crate) fn write_eos(&mut self) -> Result<(), IoError> {
+		self.writer.write_all(&[0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0])
+	}
+
 	pub fn finish(mut self) -> Result<W, IoError> {
-		self.writer
-			.write_all(&[0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0])?;
 		self.writer.flush()?;
 		Ok(self.writer)
 	}
 }
 
-fn write_schema<'a, 'fbb>(
+fn write_schema<'fbb>(
 	buf_metadata: Vec<u8>,
-	arrays: impl IntoIterator<Item = (&'a str, &'a dyn Array)>,
+	schema: &Schema,
 ) -> FlatBufferBuilder<'fbb> {
 	let mut builder = FlatBufferBuilder::from_vec(buf_metadata);
-	let mut fields = Vec::<WIPOffset<Field<'fbb>>>::new();
 
-	for (name, array) in arrays.into_iter() {
-		let field = array.serialize_field(&mut builder, name);
-		fields.push(field);
-	}
-
-	let features = builder.create_vector(&[Feature::COMPRESSED_BODY]);
-	let fields = builder.create_vector(&fields);
-
-	let schema = Schema::create(
-		&mut builder,
-		&SchemaArgs {
-			endianness: Endianness::Little,
-			custom_metadata: None,
-			fields: Some(fields),
-			features: Some(features),
-		},
-	)
-	.as_union_value();
+	let schema = schema.serialize(&mut builder).as_union_value();
 
 	let message = Message::create(
 		&mut builder,

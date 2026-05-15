@@ -1,10 +1,9 @@
 use bytemuck::cast_slice;
-use flatbuffers::{FlatBufferBuilder, WIPOffset};
 
 use super::{Array, Validity};
 use crate::{
 	bitmap::ValidityBuffer,
-	fb::{Binary, BinaryArgs, Field, FieldArgs, Type, Utf8, Utf8Args},
+	schema::{DataType, Field},
 };
 
 pub struct ArrayBinary<V: Validity> {
@@ -26,27 +25,13 @@ impl<V: Validity> Array for ArrayBinary<V> {
 		self.validity.null_count()
 	}
 
-	fn serialize_field<'fbb>(
-		&self,
-		builder: &mut FlatBufferBuilder<'fbb>,
-		name: &str,
-	) -> WIPOffset<Field<'fbb>> {
-		let name = builder.create_string(name);
-		let type_union = Binary::create(builder, &BinaryArgs {})
-			.as_union_value();
-
-		Field::create(
-			builder,
-			&FieldArgs {
-				name: Some(name),
-				nullable: V::IS_NULLABLE,
-				type_type: Type::Binary,
-				type_: Some(type_union),
-				dictionary: None,
-				children: None,
-				custom_metadata: None,
-			},
-		)
+	fn make_field(&self, name: &str) -> Field {
+		Field {
+			name: name.to_owned(),
+			nullable: V::IS_NULLABLE,
+			type_: DataType::Binary,
+			children: Vec::new(),
+		}
 	}
 
 	fn walk_buffers(&self, f: &mut dyn FnMut(&[u8])) {
@@ -105,27 +90,13 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 		self.validity.null_count()
 	}
 
-	fn serialize_field<'fbb>(
-		&self,
-		builder: &mut FlatBufferBuilder<'fbb>,
-		name: &str,
-	) -> WIPOffset<Field<'fbb>> {
-		let name = builder.create_string(name);
-		let type_union =
-			Utf8::create(builder, &Utf8Args {}).as_union_value();
-
-		Field::create(
-			builder,
-			&FieldArgs {
-				name: Some(name),
-				nullable: V::IS_NULLABLE,
-				type_type: Type::Utf8,
-				type_: Some(type_union),
-				dictionary: None,
-				children: None,
-				custom_metadata: None,
-			},
-		)
+	fn make_field(&self, name: &str) -> Field {
+		Field {
+			name: name.to_owned(),
+			nullable: V::IS_NULLABLE,
+			type_: DataType::Utf8,
+			children: Vec::new(),
+		}
 	}
 
 	fn walk_buffers(&self, f: &mut dyn FnMut(&[u8])) {

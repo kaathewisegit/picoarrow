@@ -1,6 +1,4 @@
-use flatbuffers::{FlatBufferBuilder, WIPOffset};
-
-use crate::{bitmap::ValidityBuffer, fb::Field};
+use crate::{bitmap::ValidityBuffer, schema::Field};
 
 mod fixed_list;
 mod primitive;
@@ -38,11 +36,7 @@ pub trait Array {
 
 	fn null_count(&self) -> usize;
 
-	fn serialize_field<'fbb>(
-		&self,
-		builder: &mut FlatBufferBuilder<'fbb>,
-		name: &str,
-	) -> WIPOffset<Field<'fbb>>;
+	fn make_field(&self, name: &str) -> Field;
 
 	fn walk_buffers(&self, f: &mut dyn FnMut(&[u8]));
 

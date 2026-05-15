@@ -1,43 +1,26 @@
 use bytemuck::{NoUninit, cast_slice};
-use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, WIPOffset};
 
 use std::ops::{Deref, DerefMut};
 
 use super::{Array, NonNullable, Validity};
 use crate::{
 	bitmap::ValidityBuffer,
-	fb::{
-		Field, FieldArgs, FloatingPoint, FloatingPointArgs, Int,
-		IntArgs, Precision, Type,
-	},
+	fb::Precision,
+	schema::{DataType, Field},
 };
 
 pub trait Primitive: NoUninit {
-	fn type_discriminant() -> Type;
-
-	fn type_union<'fbb>(
-		builder: &mut FlatBufferBuilder<'fbb>,
-	) -> WIPOffset<UnionWIPOffset>;
+	fn data_type() -> DataType;
 }
 
 macro_rules! impl_primitive_int {
-	($type:ty, $width:expr, $is_signed:expr) => {
+	($type:ty, $bit_width:expr, $is_signed:expr) => {
 		impl Primitive for $type {
-			fn type_discriminant() -> Type {
-				Type::Int
-			}
-
-			fn type_union<'fbb>(
-				builder: &mut FlatBufferBuilder<'fbb>,
-			) -> WIPOffset<UnionWIPOffset> {
-				Int::create(
-					builder,
-					&IntArgs {
-						bitWidth: $width,
-						is_signed: $is_signed,
-					},
-				)
-				.as_union_value()
+			fn data_type() -> DataType {
+				DataType::Int {
+					bit_width: $bit_width,
+					is_signed: $is_signed,
+				}
 			}
 		}
 	};
@@ -54,20 +37,10 @@ impl_primitive_int!(i64, 64, true);
 macro_rules! impl_primitive_float {
 	($type:ty, $kind:ident) => {
 		impl Primitive for $type {
-			fn type_discriminant() -> Type {
-				Type::FloatingPoint
-			}
-
-			fn type_union<'fbb>(
-				builder: &mut FlatBufferBuilder<'fbb>,
-			) -> WIPOffset<UnionWIPOffset> {
-				FloatingPoint::create(
-					builder,
-					&FloatingPointArgs {
-						precision: Precision::$kind,
-					},
-				)
-				.as_union_value()
+			fn data_type() -> DataType {
+				DataType::FloatingPoint {
+					precision: Precision::$kind,
+				}
 			}
 		}
 	};
@@ -94,26 +67,13 @@ impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 		self.validity.null_count()
 	}
 
-	fn serialize_field<'fbb>(
-		&self,
-		builder: &mut FlatBufferBuilder<'fbb>,
-		name: &str,
-	) -> WIPOffset<Field<'fbb>> {
-		let type_union = T::type_union(builder);
-		let name = builder.create_string(name);
-
-		Field::create(
-			builder,
-			&FieldArgs {
-				name: Some(name),
-				nullable: V::IS_NULLABLE,
-				type_type: T::type_discriminant(),
-				type_: Some(type_union),
-				dictionary: None,
-				children: None,
-				custom_metadata: None,
-			},
-		)
+	fn make_field(&self, name: &str) -> Field {
+		Field {
+			name: name.to_owned(),
+			nullable: V::IS_NULLABLE,
+			type_: T::data_type(),
+			children: Vec::new(),
+		}
 	}
 
 	fn walk_buffers(&self, f: &mut dyn FnMut(&[u8])) {

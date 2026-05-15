@@ -1,12 +1,12 @@
 use microarrow::{
-	array::{Array, ArrayF64, ArrayFixedSizeList, ArrayU32, NonNullable},
-	ipc::{Compression, FileWriter, StreamWriter},
+	array::{Array, ArrayF64, ArrayFixedSizeList, ArrayU8, NonNullable},
+	ipc::{Compression, FileWriter},
 };
 
 use std::fs::File;
 
 fn main() {
-	let mut u = ArrayU32::<NonNullable>::new();
+	let mut u = ArrayU8::<NonNullable>::new();
 
 	let nested = ArrayF64::<NonNullable>::new();
 	let mut fs = ArrayFixedSizeList::<_, NonNullable>::new(nested, 4);
@@ -19,12 +19,13 @@ fn main() {
 			("nested", &fs as &dyn Array),
 		],
 		Compression::Zstd(3),
+		// Compression::None,
 	)
 	.unwrap();
 
-	u.push(0);
-	u.push(1);
-	u.push(2);
+	u.push(0x57);
+	u.push(0x4f);
+	u.push(0x57);
 
 	fs.push(|n| {
 		n.push(1.0);

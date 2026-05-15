@@ -22,7 +22,10 @@ impl<W: Write> FileWriter<W> {
 	) -> Result<Self, IoError> {
 		writer.write_all(b"ARROW1\0\0")?;
 		let writer = StreamWriter::new(writer, arrays, compression)?;
-		let cursor = 8 + writer.buf_metadata.len();
+		// 8 ARROW1 perifx
+		// 4 continuation
+		// 4 metadata legnth
+		let cursor = 8 + 4 + 4 + writer.metadata_written;
 
 		Ok(Self {
 			cursor,
@@ -37,9 +40,11 @@ impl<W: Write> FileWriter<W> {
 	{
 		self.writer.write_batch(arrays)?;
 
-		let metadata_len = self.writer.buf_metadata.len();
+		// length + body
+		let metadata_len = 4 + self.writer.metadata_written;
 		let data_len = self.writer.buf_data.len();
 
+		self.cursor += 4; // continuation
 		self.batches.push(Block::new(
 			self.cursor as i64,
 			metadata_len as i32,
@@ -50,10 +55,15 @@ impl<W: Write> FileWriter<W> {
 		Ok(())
 	}
 
-	pub fn finish(self) -> Result<W, IoError> {
-		let mut writer = self.writer.finish()?;
+	pub fn finish(mut self) -> Result<W, IoError> {
+		self.writer.write_eos()?;
+		let StreamWriter {
+			mut writer, schema, ..
+		} = self.writer;
 
 		let mut builder = FlatBufferBuilder::new();
+
+		let schema = schema.serialize(&mut builder);
 
 		let batches = builder.create_vector(&self.batches);
 
@@ -61,7 +71,7 @@ impl<W: Write> FileWriter<W> {
 			&mut builder,
 			&FooterArgs {
 				version: MetadataVersion::V5,
-				schema: todo!(),
+				schema: Some(schema),
 				dictionaries: None,
 				recordBatches: Some(batches),
 				custom_metadata: None,
@@ -75,6 +85,7 @@ impl<W: Write> FileWriter<W> {
 		writer.write_all(&footer_len.to_le_bytes())?;
 
 		writer.write_all(b"ARROW1")?;
+		writer.flush()?;
 
 		Ok(writer)
 	}
