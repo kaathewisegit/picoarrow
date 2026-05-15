@@ -2,6 +2,7 @@ use flatbuffers::{FlatBufferBuilder, WIPOffset};
 
 use crate::{bitmap::Bitmap, fb::Field};
 
+mod fixed_list;
 mod primitive;
 
 // TODO: seal
