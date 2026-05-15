@@ -1,3 +1,4 @@
+use bytemuck::{NoUninit, cast_slice};
 use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, WIPOffset};
 
 use std::ops::{Deref, DerefMut};
@@ -11,7 +12,7 @@ use crate::{
 	},
 };
 
-pub trait Primitive {
+pub trait Primitive: NoUninit {
 	fn type_discriminant() -> Type;
 
 	fn type_union<'fbb>(
@@ -120,7 +121,8 @@ impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 		F: FnMut(&[u8]),
 	{
 		f(self.validity.buffer());
-		// TODO: values buffer
+		let value_buf: &[u8] = cast_slice(&self.values);
+		f(value_buf);
 	}
 }
 
