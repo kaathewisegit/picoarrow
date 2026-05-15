@@ -6,5 +6,6 @@ pub use stream::StreamWriter;
 pub enum Compression {
 	None,
 	LZ4,
+	#[cfg(feature = "zstd")]
 	Zstd(u8),
 }

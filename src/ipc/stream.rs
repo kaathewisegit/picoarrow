@@ -1,4 +1,5 @@
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
+#[cfg(feature = "zstd")]
 use zstd::stream::Encoder;
 
 use std::{
@@ -131,6 +132,7 @@ fn write_vec(src: &[u8], dst: &mut Vec<u8>, compression: Compression) {
 	match compression {
 		Compression::None => dst.extend_from_slice(src),
 		Compression::LZ4 => unimplemented!(),
+		#[cfg(feature = "zstd")]
 		Compression::Zstd(level) => {
 			let len = src.len() as i64;
 			dst.extend_from_slice(&len.to_le_bytes());
@@ -194,6 +196,7 @@ fn write_batch<'a, 'fbb>(
 				method: BodyCompressionMethod::BUFFER,
 			},
 		)),
+		#[cfg(feature = "zstd")]
 		Compression::Zstd(_) => Some(BodyCompression::create(
 			&mut builder,
 			&BodyCompressionArgs {

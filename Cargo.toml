@@ -6,4 +6,8 @@ edition = "2024"
 [dependencies]
 bytemuck = "1.25.0"
 flatbuffers = "25.12.19"
-zstd = { version = "0.13.3", default-features = false }
+zstd = { version = "0.13.3", default-features = false, optional = true }
+
+[features]
+zstd = ["dep:zstd"]
+default = ["zstd"]
