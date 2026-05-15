@@ -132,7 +132,15 @@ fn write_schema<'fbb>(
 fn write_vec(src: &[u8], dst: &mut Vec<u8>, compression: Compression) {
 	match compression {
 		Compression::None => dst.extend_from_slice(src),
-		Compression::LZ4 => unimplemented!(),
+		#[cfg(feature = "lz4")]
+		Compression::LZ4 => {
+			let len = src.len() as i64;
+			dst.extend_from_slice(&len.to_le_bytes());
+			let mut encoder =
+				lz4_flex::frame::FrameEncoder::new(dst);
+			encoder.write_all(src).unwrap();
+			encoder.finish().unwrap();
+		}
 		#[cfg(feature = "zstd")]
 		Compression::Zstd(level) => {
 			let len = src.len() as i64;
@@ -190,6 +198,7 @@ fn write_batch<'a, 'fbb>(
 
 	let compression = match compression {
 		Compression::None => None,
+		#[cfg(feature = "lz4")]
 		Compression::LZ4 => Some(BodyCompression::create(
 			&mut builder,
 			&BodyCompressionArgs {
