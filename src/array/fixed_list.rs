@@ -1,7 +1,10 @@
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 
-use super::{Array, NonNullable, Nullable, Validity};
-use crate::fb::{Field, FieldArgs, FixedSizeList, FixedSizeListArgs, Type};
+use super::{Array, Validity};
+use crate::{
+	bitmap::ValidityBuffer,
+	fb::{Field, FieldArgs, FixedSizeList, FixedSizeListArgs, Type},
+};
 
 pub struct ArrayFixedSizeList<A: Array, V: Validity> {
 	len: usize,
@@ -56,13 +59,11 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 		Self {
 			len: 0,
 			size,
-			validity: todo!(),
+			validity: V::Container::new(),
 			child,
 		}
 	}
-}
 
-impl<A: Array> ArrayFixedSizeList<A, Nullable> {
 	pub fn push<F>(&mut self, f: F)
 	where
 		F: FnOnce(&mut A),
@@ -70,8 +71,10 @@ impl<A: Array> ArrayFixedSizeList<A, Nullable> {
 		let before = self.child.len();
 		f(&mut self.child);
 		let after = self.child.len();
-
 		assert_eq!(before - after, self.size as usize);
+
+		self.validity.push(self.len, true);
+		self.len += 1;
 	}
 
 	pub fn child(&self) -> &A {

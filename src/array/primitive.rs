@@ -2,10 +2,13 @@ use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, WIPOffset};
 
 use std::ops::{Deref, DerefMut};
 
-use super::{Array, NonNullable, Nullable, Validity};
-use crate::fb::{
-	Field, FieldArgs, FloatingPoint, FloatingPointArgs, Int, IntArgs,
-	Precision, Type,
+use super::{Array, NonNullable, Validity};
+use crate::{
+	bitmap::ValidityBuffer,
+	fb::{
+		Field, FieldArgs, FloatingPoint, FloatingPointArgs, Int,
+		IntArgs, Precision, Type,
+	},
 };
 
 pub trait Primitive {
@@ -109,7 +112,7 @@ impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 	}
 }
 
-impl<T: Primitive> ArrayPrimitive<T, Nullable> {
+impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 	pub fn push(&mut self, value: T) {
 		self.validity.push(self.len(), true);
 		self.values.push(value);
@@ -133,12 +136,6 @@ impl<T: Primitive> ArrayPrimitive<T, Nullable> {
 		} else {
 			Some(&mut self.values[index])
 		}
-	}
-}
-
-impl<T: Primitive> ArrayPrimitive<T, NonNullable> {
-	pub fn push(&mut self, value: T) {
-		self.values.push(value);
 	}
 }
 

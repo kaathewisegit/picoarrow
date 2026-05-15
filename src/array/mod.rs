@@ -1,6 +1,9 @@
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 
-use crate::{bitmap::Bitmap, fb::Field};
+use crate::{
+	bitmap::{Bitmap, ValidityBuffer},
+	fb::Field,
+};
 
 mod fixed_list;
 mod primitive;
@@ -8,7 +11,7 @@ mod primitive;
 // TODO: seal
 pub trait Validity {
 	const IS_NULLABLE: bool;
-	type Container;
+	type Container: ValidityBuffer;
 }
 
 pub struct Nullable;
