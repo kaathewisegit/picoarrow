@@ -1,7 +1,6 @@
 use microarrow::{
 	array::{Array, ArrayF64, ArrayFixedSizeList, ArrayU32, NonNullable},
-	schema::SchemaBuilder,
-	stream::{Compression, RecordBatchBuilder},
+	ipc::{Compression, RecordBatchBuilder, SchemaBuilder},
 };
 
 use std::{fs::File, io::Write};
