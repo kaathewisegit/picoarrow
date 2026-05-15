@@ -1,4 +1,4 @@
-use microarrow::{
+use picoarrow::{
 	array::{Array, ArrayF64, ArrayFixedSizeList, ArrayU8, NonNullable},
 	ipc::{Compression, FileWriter},
 };

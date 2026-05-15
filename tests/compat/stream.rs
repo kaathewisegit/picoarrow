@@ -1,7 +1,7 @@
 use arrow_array::RecordBatch;
 use arrow_ipc::reader::StreamReader;
 
-use microarrow::{
+use picoarrow::{
 	array::{Array, ArrayF64, NonNullable},
 	ipc::{Compression, StreamWriter},
 };

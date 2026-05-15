@@ -348,18 +348,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "microarrow"
-version = "0.1.0"
-dependencies = [
- "arrow-array",
- "arrow-ipc",
- "bytemuck",
- "flatbuffers",
- "lz4_flex",
- "zstd",
-]
-
-[[package]]
 name = "num-bigint"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -402,6 +390,18 @@ name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
+
+[[package]]
+name = "picoarrow"
+version = "0.1.0"
+dependencies = [
+ "arrow-array",
+ "arrow-ipc",
+ "bytemuck",
+ "flatbuffers",
+ "lz4_flex",
+ "zstd",
+]
 
 [[package]]
 name = "pin-project-lite"
