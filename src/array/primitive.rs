@@ -89,6 +89,10 @@ impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 		self.values.is_empty()
 	}
 
+	fn null_count(&self) -> usize {
+		self.validity.null_count()
+	}
+
 	fn serialize_field<'fbb>(
 		&self,
 		builder: &mut FlatBufferBuilder<'fbb>,

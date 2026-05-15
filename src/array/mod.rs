@@ -1,12 +1,13 @@
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 
-use crate::{
-	bitmap::{Bitmap, ValidityBuffer},
-	fb::Field,
-};
+use crate::{bitmap::ValidityBuffer, fb::Field};
 
 mod fixed_list;
 mod primitive;
+mod variable;
+
+pub use fixed_list::ArrayFixedSizeList;
+pub use variable::{ArrayBinary, ArrayUtf8};
 
 // TODO: seal
 pub trait Validity {
@@ -17,7 +18,7 @@ pub trait Validity {
 pub struct Nullable;
 impl Validity for Nullable {
 	const IS_NULLABLE: bool = true;
-	type Container = Bitmap;
+	type Container = Vec<u8>;
 }
 
 pub struct NonNullable;
@@ -30,6 +31,8 @@ pub trait Array {
 	fn len(&self) -> usize;
 
 	fn is_empty(&self) -> bool;
+
+	fn null_count(&self) -> usize;
 
 	fn serialize_field<'fbb>(
 		&self,

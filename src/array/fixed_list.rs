@@ -22,6 +22,10 @@ impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 		self.len() == 0
 	}
 
+	fn null_count(&self) -> usize {
+		self.validity.null_count()
+	}
+
 	fn serialize_field<'fbb>(
 		&self,
 		builder: &mut FlatBufferBuilder<'fbb>,
