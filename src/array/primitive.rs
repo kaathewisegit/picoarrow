@@ -67,6 +67,11 @@ impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 		self.validity.null_count()
 	}
 
+	fn clear(&mut self) {
+		self.validity.clear();
+		self.values.clear();
+	}
+
 	fn make_field(&self, name: &str) -> Field {
 		Field {
 			name: name.to_owned(),

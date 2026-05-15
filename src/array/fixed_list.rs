@@ -25,6 +25,11 @@ impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 		self.validity.null_count()
 	}
 
+	fn clear(&mut self) {
+		self.validity.clear();
+		self.child.clear();
+	}
+
 	fn make_field(&self, name: &str) -> Field {
 		Field {
 			name: name.to_owned(),

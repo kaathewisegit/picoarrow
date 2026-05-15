@@ -36,6 +36,8 @@ pub trait Array {
 
 	fn null_count(&self) -> usize;
 
+	fn clear(&mut self);
+
 	fn make_field(&self, name: &str) -> Field;
 
 	fn walk_buffers(&self, f: &mut dyn FnMut(&[u8]));

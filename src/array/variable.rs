@@ -25,6 +25,11 @@ impl<V: Validity> Array for ArrayBinary<V> {
 		self.validity.null_count()
 	}
 
+	fn clear(&mut self) {
+		self.validity.clear();
+		self.offsets.resize(1, 0);
+	}
+
 	fn make_field(&self, name: &str) -> Field {
 		Field {
 			name: name.to_owned(),
@@ -88,6 +93,11 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 
 	fn null_count(&self) -> usize {
 		self.validity.null_count()
+	}
+
+	fn clear(&mut self) {
+		self.validity.clear();
+		self.offsets.resize(1, 0);
 	}
 
 	fn make_field(&self, name: &str) -> Field {
