@@ -9,6 +9,7 @@ use std::{
 
 use super::Compression;
 use crate::{
+	Error, Result,
 	array::Array,
 	fb::{
 		BodyCompression, BodyCompressionArgs, BodyCompressionMethod,
@@ -43,7 +44,7 @@ impl<W: Write> StreamWriter<W> {
 		mut writer: W,
 		arrays: impl IntoIterator<Item = (&'a str, &'a dyn Array)>,
 		compression: Compression,
-	) -> Result<Self, IoError> {
+	) -> Result<Self> {
 		write_continuation(&mut writer)?;
 
 		let schema = Schema::new(arrays);
@@ -67,7 +68,7 @@ impl<W: Write> StreamWriter<W> {
 		})
 	}
 
-	pub fn write_batch<'a, I>(&mut self, arrays: I) -> Result<(), IoError>
+	pub fn write_batch<'a, I>(&mut self, arrays: I) -> Result<()>
 	where
 		I: IntoIterator<Item = &'a dyn Array>,
 	{
@@ -79,7 +80,7 @@ impl<W: Write> StreamWriter<W> {
 			take(&mut self.buf_data),
 			arrays,
 			self.compression,
-		);
+		)?;
 
 		write_continuation(&mut self.writer)?;
 
@@ -95,8 +96,10 @@ impl<W: Write> StreamWriter<W> {
 		Ok(())
 	}
 
-	pub(crate) fn write_eos(&mut self) -> Result<(), IoError> {
-		self.writer.write_all(&[0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0])
+	pub(crate) fn write_eos(&mut self) -> Result<()> {
+		self.writer
+			.write_all(&[0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0])?;
+		Ok(())
 	}
 
 	pub fn finish(mut self) -> Result<W, IoError> {
@@ -138,6 +141,7 @@ fn write_vec(src: &[u8], dst: &mut Vec<u8>, compression: Compression) {
 			dst.extend_from_slice(&len.to_le_bytes());
 			let mut encoder =
 				lz4_flex::frame::FrameEncoder::new(dst);
+			// writes to Vec<u8> are infallible
 			encoder.write_all(src).unwrap();
 			encoder.finish().unwrap();
 		}
@@ -145,9 +149,11 @@ fn write_vec(src: &[u8], dst: &mut Vec<u8>, compression: Compression) {
 		Compression::Zstd(level) => {
 			let len = src.len() as i64;
 			dst.extend_from_slice(&len.to_le_bytes());
+			// the level is clamped
 			let mut encoder =
 				Encoder::new(dst, level.clamp(0, 22).into())
 					.unwrap();
+			// writes to Vec<u8> are infallible
 			encoder.write_all(src).unwrap();
 			encoder.finish().unwrap();
 		}
@@ -166,7 +172,7 @@ fn write_batch<'a, 'fbb>(
 	mut buf_data: Vec<u8>,
 	arrays: impl IntoIterator<Item = &'a dyn Array>,
 	compression: Compression,
-) -> (FlatBufferBuilder<'fbb>, Vec<u8>) {
+) -> Result<(FlatBufferBuilder<'fbb>, Vec<u8>)> {
 	let mut builder = FlatBufferBuilder::from_vec(buf_metadata);
 
 	let mut buffers = Vec::<Buffer>::new();
@@ -175,7 +181,11 @@ fn write_batch<'a, 'fbb>(
 	let mut num_rows: Option<usize> = None;
 	for array in arrays.into_iter() {
 		if let Some(num_rows) = num_rows {
-			assert_eq!(num_rows, array.len());
+			if num_rows != array.len() {
+				return Err(Error::BatchDifferentLengths(
+					(num_rows, array.len()).into(),
+				));
+			}
 		} else {
 			num_rows = Some(array.len());
 		}
@@ -244,5 +254,5 @@ fn write_batch<'a, 'fbb>(
 
 	builder.finish(message, None);
 
-	(builder, buf_data)
+	Ok((builder, buf_data))
 }

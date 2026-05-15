@@ -1,5 +1,6 @@
 use super::{Array, Validity};
 use crate::{
+	Error, Result,
 	bitmap::ValidityBuffer,
 	schema::{DataType, Field},
 };
@@ -56,17 +57,25 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 		}
 	}
 
-	pub fn push<F>(&mut self, f: F)
+	pub fn push<F>(&mut self, f: F) -> Result<()>
 	where
 		F: FnOnce(&mut A),
 	{
 		let before = self.child.len();
 		f(&mut self.child);
 		let after = self.child.len();
-		assert_eq!(after - before, self.size as usize);
+
+		if after - before != self.size as usize {
+			return Err(Error::WrongNestedLength {
+				expected: self.size,
+				got: after - before,
+			});
+		}
 
 		self.validity.push(self.len, true);
 		self.len += 1;
+
+		Ok(())
 	}
 
 	pub fn child(&self) -> &A {

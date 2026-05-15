@@ -1,9 +1,10 @@
-use std::io::{Error as IoError, Write};
+use std::io::Write;
 
 use flatbuffers::FlatBufferBuilder;
 
 use super::{Compression, StreamWriter};
 use crate::{
+	Result,
 	array::Array,
 	fb::{Block, Footer, FooterArgs, MetadataVersion},
 };
@@ -19,7 +20,7 @@ impl<W: Write> FileWriter<W> {
 		mut writer: W,
 		arrays: impl IntoIterator<Item = (&'a str, &'a dyn Array)>,
 		compression: Compression,
-	) -> Result<Self, IoError> {
+	) -> Result<Self> {
 		writer.write_all(b"ARROW1\0\0")?;
 		let writer = StreamWriter::new(writer, arrays, compression)?;
 		// 8 ARROW1 perifx
@@ -34,7 +35,7 @@ impl<W: Write> FileWriter<W> {
 		})
 	}
 
-	pub fn write_batch<'a, I>(&mut self, arrays: I) -> Result<(), IoError>
+	pub fn write_batch<'a, I>(&mut self, arrays: I) -> Result<()>
 	where
 		I: IntoIterator<Item = &'a dyn Array>,
 	{
@@ -55,7 +56,7 @@ impl<W: Write> FileWriter<W> {
 		Ok(())
 	}
 
-	pub fn finish(mut self) -> Result<W, IoError> {
+	pub fn finish(mut self) -> Result<W> {
 		self.writer.write_eos()?;
 		let StreamWriter {
 			mut writer, schema, ..
