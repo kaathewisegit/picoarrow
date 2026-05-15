@@ -40,14 +40,13 @@ fn write_metadata<W: Write>(w: &mut W, metadata: &[u8]) -> Result<(), IoError> {
 }
 
 impl<W: Write> StreamWriter<W> {
-	pub fn new<'a>(
+	pub fn new(
 		mut writer: W,
-		arrays: impl IntoIterator<Item = (&'a str, &'a dyn Array)>,
+		schema: Schema,
 		compression: Compression,
 	) -> Result<Self> {
 		write_continuation(&mut writer)?;
 
-		let schema = Schema::new(arrays);
 		let buf_metadata = Vec::new();
 
 		let builder = write_schema(buf_metadata, &schema);

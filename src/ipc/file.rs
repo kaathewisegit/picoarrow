@@ -4,7 +4,7 @@ use flatbuffers::FlatBufferBuilder;
 
 use super::{Compression, StreamWriter};
 use crate::{
-	Result,
+	Result, Schema,
 	array::Array,
 	fb::{Block, Footer, FooterArgs, MetadataVersion},
 };
@@ -16,13 +16,13 @@ pub struct FileWriter<W> {
 }
 
 impl<W: Write> FileWriter<W> {
-	pub fn new<'a>(
+	pub fn new(
 		mut writer: W,
-		arrays: impl IntoIterator<Item = (&'a str, &'a dyn Array)>,
+		schema: Schema,
 		compression: Compression,
 	) -> Result<Self> {
 		writer.write_all(b"ARROW1\0\0")?;
-		let writer = StreamWriter::new(writer, arrays, compression)?;
+		let writer = StreamWriter::new(writer, schema, compression)?;
 		// 8 ARROW1 perifx
 		// 4 continuation
 		// 4 metadata legnth

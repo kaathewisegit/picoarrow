@@ -1,4 +1,5 @@
 use picoarrow::{
+	Schema,
 	array::{Array, ArrayF64, ArrayFixedSizeList, ArrayU8, NonNullable},
 	ipc::{Compression, FileWriter},
 };
@@ -14,10 +15,10 @@ fn main() {
 	let file = File::create("target/tmp.ipc.stream").unwrap();
 	let mut writer = FileWriter::new(
 		file,
-		[
-			("primitive", &u as &dyn Array),
-			("nested", &fs as &dyn Array),
-		],
+		Schema::from_fields([
+			u.make_field("primitive"),
+			fs.make_field("nested"),
+		]),
 		Compression::Zstd(3),
 		// Compression::None,
 	)
@@ -32,19 +33,22 @@ fn main() {
 		n.push(2.0);
 		n.push(3.0);
 		n.push(4.0);
-	});
+	})
+	.unwrap();
 	fs.push(|n| {
 		n.push(-1.0);
 		n.push(-2.0);
 		n.push(-3.0);
 		n.push(-4.0);
-	});
+	})
+	.unwrap();
 	fs.push(|n| {
 		n.push(0.0);
 		n.push(0.0);
 		n.push(0.0);
 		n.push(0.0);
-	});
+	})
+	.unwrap();
 
 	writer.write_batch([&u as &dyn Array, &fs as &dyn Array])
 		.unwrap();

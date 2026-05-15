@@ -2,6 +2,7 @@ use arrow_array::RecordBatch;
 use arrow_ipc::reader::StreamReader;
 
 use picoarrow::{
+	Schema,
 	array::{Array, ArrayF64, NonNullable},
 	ipc::{Compression, StreamWriter},
 };
@@ -22,7 +23,7 @@ fn primitive_float() {
 	let buffer = Vec::<u8>::new();
 	let mut writer = StreamWriter::new(
 		buffer,
-		[("array", &array as &dyn Array)],
+		Schema::from_fields([array.make_field("array")]),
 		Compression::None,
 	)
 	.unwrap();

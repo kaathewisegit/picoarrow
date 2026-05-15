@@ -20,7 +20,16 @@ pub struct Schema {
 }
 
 impl Schema {
-	pub fn new<'a, I>(arrays: I) -> Self
+	pub fn from_fields<I>(fields: I) -> Self
+	where
+		I: IntoIterator<Item = Field>,
+	{
+		Self {
+			fields: fields.into_iter().collect(),
+		}
+	}
+
+	pub fn from_arrays<'a, I>(arrays: I) -> Self
 	where
 		I: IntoIterator<Item = (&'a str, &'a dyn Array)>,
 	{
