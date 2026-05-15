@@ -1,6 +1,6 @@
 use microarrow::{
 	array::{Array, ArrayF64, ArrayFixedSizeList, ArrayU32, NonNullable},
-	ipc::{Compression, StreamWriter},
+	ipc::{Compression, FileWriter, StreamWriter},
 };
 
 use std::fs::File;
@@ -12,7 +12,7 @@ fn main() {
 	let mut fs = ArrayFixedSizeList::<_, NonNullable>::new(nested, 4);
 
 	let file = File::create("target/tmp.ipc.stream").unwrap();
-	let mut writer = StreamWriter::new(
+	let mut writer = FileWriter::new(
 		file,
 		[
 			("primitive", &u as &dyn Array),

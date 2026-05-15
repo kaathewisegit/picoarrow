@@ -155,3 +155,33 @@ table Message {
 }
 
 root_type Message;
+
+
+/// ----------------------------------------------------------------------
+/// Arrow File metadata
+///
+
+table Footer {
+  version: org.apache.arrow.flatbuf.MetadataVersion;
+
+  schema: org.apache.arrow.flatbuf.Schema;
+
+  dictionaries: [ Block ];
+
+  recordBatches: [ Block ];
+
+  /// User-defined metadata
+  custom_metadata: [ KeyValue ];
+}
+
+struct Block {
+  /// Index to the start of the RecordBatch (note this is past the Message header)
+  offset: long;
+
+  /// Length of the metadata
+  metaDataLength: int;
+
+  /// Length of the data (this is aligned so there can be a gap between this and
+  /// the metadata).
+  bodyLength: long;
+}

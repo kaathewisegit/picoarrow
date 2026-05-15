@@ -1,3 +1,4 @@
+/// flatc --rust --gen-all Message.fbs
 #[allow(clippy::all)]
 #[allow(nonstandard_style)]
 #[allow(unused_imports)]

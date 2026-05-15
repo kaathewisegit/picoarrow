@@ -19,8 +19,8 @@ use crate::{
 };
 
 pub struct StreamWriter<W> {
-	buf_metadata: Vec<u8>,
-	buf_data: Vec<u8>,
+	pub(crate) buf_metadata: Vec<u8>,
+	pub(crate) buf_data: Vec<u8>,
 	compression: Compression,
 	writer: W,
 }
@@ -49,8 +49,7 @@ impl<W: Write> StreamWriter<W> {
 		write_continuation(&mut writer)?;
 		write_metadata(&mut writer, schema_data)?;
 
-		let (mut buf_metadata, _) = builder.collapse();
-		buf_metadata.clear();
+		let (buf_metadata, _) = builder.collapse();
 
 		Ok(Self {
 			buf_metadata,
@@ -64,7 +63,10 @@ impl<W: Write> StreamWriter<W> {
 	where
 		I: IntoIterator<Item = &'a dyn Array>,
 	{
-		let (builder, mut buf_data) = write_batch(
+		self.buf_metadata.clear();
+		self.buf_data.clear();
+
+		let (builder, buf_data) = write_batch(
 			take(&mut self.buf_metadata),
 			take(&mut self.buf_data),
 			arrays,
@@ -75,11 +77,7 @@ impl<W: Write> StreamWriter<W> {
 		write_metadata(&mut self.writer, builder.finished_data())?;
 		self.writer.write_all(&buf_data)?;
 
-		let mut buf_metadata = builder.collapse().0;
-		buf_metadata.clear();
-		buf_data.clear();
-
-		self.buf_metadata = buf_metadata;
+		self.buf_metadata = builder.collapse().0;
 		self.buf_data = buf_data;
 
 		Ok(())
