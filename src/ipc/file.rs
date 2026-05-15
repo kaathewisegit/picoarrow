@@ -56,15 +56,12 @@ impl<W: Write> FileWriter<W> {
 		Ok(())
 	}
 
-	pub fn finish(mut self) -> Result<W> {
+	pub fn finish(&mut self) -> Result<()> {
 		self.writer.write_eos()?;
-		let StreamWriter {
-			mut writer, schema, ..
-		} = self.writer;
 
 		let mut builder = FlatBufferBuilder::new();
 
-		let schema = schema.serialize(&mut builder);
+		let schema = self.writer.schema.serialize(&mut builder);
 
 		let batches = builder.create_vector(&self.batches);
 
@@ -79,6 +76,8 @@ impl<W: Write> FileWriter<W> {
 			},
 		);
 
+		let writer = &mut self.writer.writer;
+
 		builder.finish(footer, None);
 		let footer_bytes = builder.finished_data();
 		writer.write_all(footer_bytes)?;
@@ -88,6 +87,6 @@ impl<W: Write> FileWriter<W> {
 		writer.write_all(b"ARROW1")?;
 		writer.flush()?;
 
-		Ok(writer)
+		Ok(())
 	}
 }
