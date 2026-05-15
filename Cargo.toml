@@ -11,3 +11,7 @@ zstd = { version = "0.13.3", default-features = false, optional = true }
 [features]
 zstd = ["dep:zstd"]
 default = ["zstd"]
+
+[dev-dependencies]
+arrow-array = "58.3.0"
+arrow-ipc = "58.3.0"
