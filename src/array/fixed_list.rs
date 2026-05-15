@@ -91,7 +91,7 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 		let before = self.child.len();
 		f(&mut self.child);
 		let after = self.child.len();
-		assert_eq!(before - after, self.size as usize);
+		assert_eq!(after - before, self.size as usize);
 
 		self.validity.push(self.len, true);
 		self.len += 1;

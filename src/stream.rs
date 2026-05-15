@@ -1,13 +1,11 @@
-#![allow(unused)]
-
 use flatbuffers::FlatBufferBuilder;
 
 use crate::{
 	array::Array,
 	fb::{
 		BodyCompression, BodyCompressionArgs, BodyCompressionMethod,
-		Buffer, CompressionType, FieldNode, RecordBatch,
-		RecordBatchArgs,
+		Buffer, CompressionType, FieldNode, Message, MessageArgs,
+		MessageHeader, MetadataVersion, RecordBatch, RecordBatchArgs,
 	},
 };
 
@@ -18,6 +16,7 @@ pub enum Compression {
 }
 
 pub struct RecordBatchBuilder<'fbb> {
+	num_rows: usize,
 	compression: Compression,
 	builder: FlatBufferBuilder<'fbb>,
 	metadata: RecordBatchArgs<'fbb>,
@@ -35,8 +34,9 @@ fn round_vec_len(data: &mut Vec<u8>) {
 }
 
 impl<'fbb> RecordBatchBuilder<'fbb> {
-	pub fn new(compression: Compression) -> Self {
+	pub fn new(num_rows: usize, compression: Compression) -> Self {
 		Self {
+			num_rows,
 			compression,
 			builder: FlatBufferBuilder::new(),
 			metadata: RecordBatchArgs::default(),
@@ -88,15 +88,31 @@ impl<'fbb> RecordBatchBuilder<'fbb> {
 		let batch = RecordBatch::create(
 			&mut self.builder,
 			&RecordBatchArgs {
-				length: 0,
+				length: self.num_rows as i64,
 				nodes: Some(nodes),
 				buffers: Some(buffers),
 				compression,
 				variadicBufferCounts: None,
 			},
+		)
+		.as_union_value();
+
+		let message = Message::create(
+			&mut self.builder,
+			&MessageArgs {
+				version: MetadataVersion::V5,
+				header: Some(batch),
+				header_type: MessageHeader::RecordBatch,
+				bodyLength: self.data.len() as i64,
+				custom_metadata: None,
+			},
 		);
 
-		self.builder.finish(batch, None);
+		self.builder.finish(message, None);
 		self.builder.finished_data()
+	}
+
+	pub fn data(&self) -> &[u8] {
+		&self.data
 	}
 }
