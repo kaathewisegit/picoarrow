@@ -9,7 +9,7 @@ use crate::{
 pub struct ArrayBinary<V: Validity> {
 	validity: V::Container,
 	offsets: Vec<u32>,
-	buffer: Vec<u8>,
+	data: Vec<u8>,
 }
 
 impl<V: Validity> Array for ArrayBinary<V> {
@@ -47,6 +47,14 @@ impl<V: Validity> Array for ArrayBinary<V> {
 			},
 		)
 	}
+
+	fn walk_buffers<F>(&self, mut f: F)
+	where
+		F: FnMut(&[u8]),
+	{
+		f(self.validity.buffer());
+		f(&self.data);
+	}
 }
 
 impl<V: Validity> ArrayBinary<V> {
@@ -54,7 +62,7 @@ impl<V: Validity> ArrayBinary<V> {
 		Self {
 			validity: V::Container::new(),
 			offsets: vec![0],
-			buffer: Vec::new(),
+			data: Vec::new(),
 		}
 	}
 
@@ -63,7 +71,7 @@ impl<V: Validity> ArrayBinary<V> {
 		// TODO: check length
 		let end = start + bytes.len() as u32;
 
-		self.buffer.extend_from_slice(bytes);
+		self.data.extend_from_slice(bytes);
 
 		self.offsets.push(end);
 	}
@@ -78,7 +86,7 @@ impl<V: Validity> Default for ArrayBinary<V> {
 pub struct ArrayUtf8<V: Validity> {
 	validity: V::Container,
 	offsets: Vec<u32>,
-	buffer: String,
+	data: String,
 }
 
 impl<V: Validity> Array for ArrayUtf8<V> {
@@ -116,6 +124,14 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 			},
 		)
 	}
+
+	fn walk_buffers<F>(&self, mut f: F)
+	where
+		F: FnMut(&[u8]),
+	{
+		f(self.validity.buffer());
+		f(self.data.as_bytes());
+	}
 }
 
 impl<V: Validity> ArrayUtf8<V> {
@@ -123,7 +139,7 @@ impl<V: Validity> ArrayUtf8<V> {
 		Self {
 			validity: V::Container::new(),
 			offsets: vec![0],
-			buffer: String::new(),
+			data: String::new(),
 		}
 	}
 
@@ -132,7 +148,7 @@ impl<V: Validity> ArrayUtf8<V> {
 		// TODO: check length
 		let end = start + value.len() as u32;
 
-		self.buffer.push_str(value);
+		self.data.push_str(value);
 
 		self.offsets.push(end);
 	}

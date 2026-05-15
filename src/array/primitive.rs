@@ -114,6 +114,14 @@ impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 			},
 		)
 	}
+
+	fn walk_buffers<F>(&self, mut f: F)
+	where
+		F: FnMut(&[u8]),
+	{
+		f(self.validity.buffer());
+		// TODO: values buffer
+	}
 }
 
 impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {

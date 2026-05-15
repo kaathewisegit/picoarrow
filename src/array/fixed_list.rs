@@ -56,6 +56,14 @@ impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 			},
 		)
 	}
+
+	fn walk_buffers<F>(&self, mut f: F)
+	where
+		F: FnMut(&[u8]),
+	{
+		f(self.validity.buffer());
+		self.child.walk_buffers(f);
+	}
 }
 
 impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {

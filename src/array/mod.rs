@@ -39,4 +39,8 @@ pub trait Array {
 		builder: &mut FlatBufferBuilder<'fbb>,
 		name: &str,
 	) -> WIPOffset<Field<'fbb>>;
+
+	fn walk_buffers<F>(&self, f: F)
+	where
+		F: FnMut(&[u8]);
 }

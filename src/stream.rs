@@ -27,6 +27,13 @@ pub struct RecordBatchBuilder<'fbb> {
 	nodes: Vec<FieldNode>,
 }
 
+fn round_vec_len(data: &mut Vec<u8>) {
+	let remaineder = data.len() % 8;
+	if remaineder != 0 {
+		data.resize(data.len() + 8 - remaineder, 0);
+	}
+}
+
 impl<'fbb> RecordBatchBuilder<'fbb> {
 	pub fn new(
 		mut builder: FlatBufferBuilder<'fbb>,
@@ -44,7 +51,13 @@ impl<'fbb> RecordBatchBuilder<'fbb> {
 	}
 
 	pub fn add_array<A: Array>(&mut self, array: &A) {
-		todo!()
+		array.walk_buffers(|buf| {
+			let offset = self.data.len() as i64;
+			let length = buf.len() as i64;
+			self.buffers.push(Buffer::new(offset, length));
+			self.data.extend_from_slice(buf);
+			round_vec_len(&mut self.data);
+		});
 	}
 
 	pub fn finish(&mut self) -> &[u8] {
