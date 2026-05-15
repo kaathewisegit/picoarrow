@@ -1,5 +1,15 @@
 mod batch;
 mod schema;
+mod stream;
 
-pub use batch::{Compression, RecordBatchBuilder};
-pub use schema::SchemaBuilder;
+pub(crate) use batch::write_batch;
+pub(crate) use schema::write_schema;
+
+pub use stream::StreamWriter;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Compression {
+	None,
+	LZ4,
+	Zstd,
+}

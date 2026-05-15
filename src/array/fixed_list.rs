@@ -57,18 +57,12 @@ impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 		)
 	}
 
-	fn walk_buffers<F>(&self, mut f: F)
-	where
-		F: FnMut(&[u8]),
-	{
+	fn walk_buffers(&self, f: &mut dyn FnMut(&[u8])) {
 		f(self.validity.buffer());
 		self.child.walk_buffers(f);
 	}
 
-	fn walk_nodes<F>(&self, mut f: F)
-	where
-		F: FnMut(usize, usize),
-	{
+	fn walk_nodes(&self, f: &mut dyn FnMut(usize, usize)) {
 		f(self.len(), self.null_count());
 		self.child.walk_nodes(f);
 	}

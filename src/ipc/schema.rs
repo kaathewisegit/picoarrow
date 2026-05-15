@@ -8,58 +8,44 @@ use crate::{
 	},
 };
 
-pub struct SchemaBuilder<'fbb> {
-	builder: FlatBufferBuilder<'fbb>,
-	fields: Vec<WIPOffset<Field<'fbb>>>,
-}
+pub fn write_schema<'a, 'fbb>(
+	buf_metadata: Vec<u8>,
+	arrays: impl IntoIterator<Item = (&'a str, &'a dyn Array)>,
+) -> FlatBufferBuilder<'fbb> {
+	let mut builder = FlatBufferBuilder::from_vec(buf_metadata);
+	let mut fields = Vec::<WIPOffset<Field<'fbb>>>::new();
 
-impl<'fbb> SchemaBuilder<'fbb> {
-	pub fn new() -> Self {
-		Self {
-			builder: FlatBufferBuilder::new(),
-			fields: Vec::new(),
-		}
+	for (name, array) in arrays.into_iter() {
+		let field = array.serialize_field(&mut builder, name);
+		fields.push(field);
 	}
 
-	pub fn add_array<A: Array>(&mut self, name: &str, array: &A) {
-		let field = array.serialize_field(&mut self.builder, name);
-		self.fields.push(field);
-	}
+	let features = builder.create_vector(&[Feature::COMPRESSED_BODY]);
+	let fields = builder.create_vector(&fields);
 
-	pub fn finish(&mut self) -> &[u8] {
-		let features =
-			self.builder.create_vector(&[Feature::COMPRESSED_BODY]);
-		let fields = self.builder.create_vector(&self.fields);
+	let schema = Schema::create(
+		&mut builder,
+		&SchemaArgs {
+			endianness: Endianness::Little,
+			custom_metadata: None,
+			fields: Some(fields),
+			features: Some(features),
+		},
+	)
+	.as_union_value();
 
-		let schema = Schema::create(
-			&mut self.builder,
-			&SchemaArgs {
-				endianness: Endianness::Little,
-				custom_metadata: None,
-				fields: Some(fields),
-				features: Some(features),
-			},
-		)
-		.as_union_value();
+	let message = Message::create(
+		&mut builder,
+		&MessageArgs {
+			version: MetadataVersion::V5,
+			header: Some(schema),
+			header_type: MessageHeader::Schema,
+			bodyLength: 0,
+			custom_metadata: None,
+		},
+	);
 
-		let message = Message::create(
-			&mut self.builder,
-			&MessageArgs {
-				version: MetadataVersion::V5,
-				header: Some(schema),
-				header_type: MessageHeader::Schema,
-				bodyLength: 0,
-				custom_metadata: None,
-			},
-		);
+	builder.finish(message, None);
 
-		self.builder.finish(message, None);
-		self.builder.finished_data()
-	}
-}
-
-impl<'fbb> Default for SchemaBuilder<'fbb> {
-	fn default() -> Self {
-		Self::new()
-	}
+	builder
 }

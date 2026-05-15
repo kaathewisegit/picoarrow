@@ -49,19 +49,13 @@ impl<V: Validity> Array for ArrayBinary<V> {
 		)
 	}
 
-	fn walk_buffers<F>(&self, mut f: F)
-	where
-		F: FnMut(&[u8]),
-	{
+	fn walk_buffers(&self, f: &mut dyn FnMut(&[u8])) {
 		f(self.validity.buffer());
 		f(cast_slice(&self.offsets));
 		f(&self.data);
 	}
 
-	fn walk_nodes<F>(&self, mut f: F)
-	where
-		F: FnMut(usize, usize),
-	{
+	fn walk_nodes(&self, f: &mut dyn FnMut(usize, usize)) {
 		f(self.len(), self.null_count());
 	}
 }
@@ -134,19 +128,13 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 		)
 	}
 
-	fn walk_buffers<F>(&self, mut f: F)
-	where
-		F: FnMut(&[u8]),
-	{
+	fn walk_buffers(&self, f: &mut dyn FnMut(&[u8])) {
 		f(self.validity.buffer());
 		f(cast_slice(&self.offsets));
 		f(self.data.as_bytes());
 	}
 
-	fn walk_nodes<F>(&self, mut f: F)
-	where
-		F: FnMut(usize, usize),
-	{
+	fn walk_nodes(&self, f: &mut dyn FnMut(usize, usize)) {
 		f(self.len(), self.null_count());
 	}
 }
