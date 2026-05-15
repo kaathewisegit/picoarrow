@@ -134,6 +134,13 @@ impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 }
 
 impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
+	pub fn new() -> Self {
+		Self {
+			validity: V::Container::new(),
+			values: Vec::new(),
+		}
+	}
+
 	pub fn push(&mut self, value: T) {
 		self.validity.push(self.len(), true);
 		self.values.push(value);

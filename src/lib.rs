@@ -3,4 +3,4 @@
 pub mod array;
 pub(crate) mod bitmap;
 pub(crate) mod fb;
-mod stream;
+pub mod stream;

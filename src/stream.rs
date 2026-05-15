@@ -35,13 +35,10 @@ fn round_vec_len(data: &mut Vec<u8>) {
 }
 
 impl<'fbb> RecordBatchBuilder<'fbb> {
-	pub fn new(
-		mut builder: FlatBufferBuilder<'fbb>,
-		compression: Compression,
-	) -> Self {
+	pub fn new(compression: Compression) -> Self {
 		Self {
 			compression,
-			builder,
+			builder: FlatBufferBuilder::new(),
 			metadata: RecordBatchArgs::default(),
 
 			data: Vec::new(),
