@@ -30,6 +30,7 @@ impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 	}
 
 	fn clear(&mut self) {
+		self.len = 0;
 		self.validity.clear();
 		self.child.clear();
 	}
