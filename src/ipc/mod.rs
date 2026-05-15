@@ -6,5 +6,5 @@ pub use stream::StreamWriter;
 pub enum Compression {
 	None,
 	LZ4,
-	Zstd,
+	Zstd(u8),
 }

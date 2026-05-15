@@ -18,7 +18,7 @@ fn main() {
 			("primitive", &u as &dyn Array),
 			("nested", &fs as &dyn Array),
 		],
-		Compression::None,
+		Compression::Zstd(3),
 	)
 	.unwrap();
 

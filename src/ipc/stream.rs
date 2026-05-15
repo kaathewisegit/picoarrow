@@ -1,4 +1,5 @@
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
+use zstd::stream::Encoder;
 
 use std::{
 	io::{Error as IoError, Write},
@@ -84,7 +85,7 @@ impl<W: Write> StreamWriter<W> {
 	}
 }
 
-pub fn write_schema<'a, 'fbb>(
+fn write_schema<'a, 'fbb>(
 	buf_metadata: Vec<u8>,
 	arrays: impl IntoIterator<Item = (&'a str, &'a dyn Array)>,
 ) -> FlatBufferBuilder<'fbb> {
@@ -126,6 +127,22 @@ pub fn write_schema<'a, 'fbb>(
 	builder
 }
 
+fn write_vec(src: &[u8], dst: &mut Vec<u8>, compression: Compression) {
+	match compression {
+		Compression::None => dst.extend_from_slice(src),
+		Compression::LZ4 => unimplemented!(),
+		Compression::Zstd(level) => {
+			let len = src.len() as i64;
+			dst.extend_from_slice(&len.to_le_bytes());
+			let mut encoder =
+				Encoder::new(dst, level.clamp(0, 22).into())
+					.unwrap();
+			encoder.write_all(src).unwrap();
+			encoder.finish().unwrap();
+		}
+	}
+}
+
 fn round_vec_len(data: &mut Vec<u8>) {
 	let remaineder = data.len() % 8;
 	if remaineder != 0 {
@@ -133,7 +150,7 @@ fn round_vec_len(data: &mut Vec<u8>) {
 	}
 }
 
-pub fn write_batch<'a, 'fbb>(
+fn write_batch<'a, 'fbb>(
 	buf_metadata: Vec<u8>,
 	mut buf_data: Vec<u8>,
 	arrays: impl IntoIterator<Item = &'a dyn Array>,
@@ -154,9 +171,10 @@ pub fn write_batch<'a, 'fbb>(
 
 		array.walk_buffers(&mut |buf| {
 			let offset = buf_data.len() as i64;
-			let length = buf.len() as i64;
+			write_vec(buf, &mut buf_data, compression);
+			let length = buf_data.len() as i64 - offset;
+
 			buffers.push(Buffer::new(offset, length));
-			buf_data.extend_from_slice(buf);
 			round_vec_len(&mut buf_data);
 		});
 
@@ -176,7 +194,7 @@ pub fn write_batch<'a, 'fbb>(
 				method: BodyCompressionMethod::BUFFER,
 			},
 		)),
-		Compression::Zstd => Some(BodyCompression::create(
+		Compression::Zstd(_) => Some(BodyCompression::create(
 			&mut builder,
 			&BodyCompressionArgs {
 				codec: CompressionType::ZSTD,
