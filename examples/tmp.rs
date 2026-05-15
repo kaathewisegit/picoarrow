@@ -11,7 +11,7 @@ fn main() {
 	let nested = ArrayF64::<NonNullable>::new();
 	let mut fs = ArrayFixedSizeList::<_, NonNullable>::new(nested, 4);
 
-	let file = File::create("tmp.ipc.stream").unwrap();
+	let file = File::create("target/tmp.ipc.stream").unwrap();
 	let mut writer = StreamWriter::new(
 		file,
 		[
@@ -47,4 +47,5 @@ fn main() {
 
 	writer.write_batch([&u as &dyn Array, &fs as &dyn Array])
 		.unwrap();
+	writer.finish().unwrap();
 }

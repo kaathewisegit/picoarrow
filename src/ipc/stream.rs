@@ -84,6 +84,13 @@ impl<W: Write> StreamWriter<W> {
 
 		Ok(())
 	}
+
+	pub fn finish(mut self) -> Result<W, IoError> {
+		self.writer
+			.write_all(&[0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0])?;
+		self.writer.flush()?;
+		Ok(self.writer)
+	}
 }
 
 fn write_schema<'a, 'fbb>(
