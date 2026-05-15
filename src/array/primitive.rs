@@ -124,6 +124,13 @@ impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 		let value_buf: &[u8] = cast_slice(&self.values);
 		f(value_buf);
 	}
+
+	fn walk_nodes<F>(&self, mut f: F)
+	where
+		F: FnMut(usize, usize),
+	{
+		f(self.len(), self.null_count());
+	}
 }
 
 impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {

@@ -1,3 +1,4 @@
+use bytemuck::cast_slice;
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 
 use super::{Array, Validity};
@@ -53,7 +54,15 @@ impl<V: Validity> Array for ArrayBinary<V> {
 		F: FnMut(&[u8]),
 	{
 		f(self.validity.buffer());
+		f(cast_slice(&self.offsets));
 		f(&self.data);
+	}
+
+	fn walk_nodes<F>(&self, mut f: F)
+	where
+		F: FnMut(usize, usize),
+	{
+		f(self.len(), self.null_count());
 	}
 }
 
@@ -130,7 +139,15 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 		F: FnMut(&[u8]),
 	{
 		f(self.validity.buffer());
+		f(cast_slice(&self.offsets));
 		f(self.data.as_bytes());
+	}
+
+	fn walk_nodes<F>(&self, mut f: F)
+	where
+		F: FnMut(usize, usize),
+	{
+		f(self.len(), self.null_count());
 	}
 }
 

@@ -64,6 +64,14 @@ impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 		f(self.validity.buffer());
 		self.child.walk_buffers(f);
 	}
+
+	fn walk_nodes<F>(&self, mut f: F)
+	where
+		F: FnMut(usize, usize),
+	{
+		f(self.len(), self.null_count());
+		self.child.walk_nodes(f);
+	}
 }
 
 impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {

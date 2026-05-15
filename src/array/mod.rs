@@ -43,4 +43,8 @@ pub trait Array {
 	fn walk_buffers<F>(&self, f: F)
 	where
 		F: FnMut(&[u8]);
+
+	fn walk_nodes<F>(&self, f: F)
+	where
+		F: FnMut(usize, usize);
 }

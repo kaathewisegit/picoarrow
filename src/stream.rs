@@ -58,6 +58,12 @@ impl<'fbb> RecordBatchBuilder<'fbb> {
 			self.data.extend_from_slice(buf);
 			round_vec_len(&mut self.data);
 		});
+
+		array.walk_nodes(|length, null_count| {
+			let length = length as i64;
+			let null_count = null_count as i64;
+			self.nodes.push(FieldNode::new(length, null_count));
+		})
 	}
 
 	pub fn finish(&mut self) -> &[u8] {
@@ -97,5 +103,3 @@ impl<'fbb> RecordBatchBuilder<'fbb> {
 		self.builder.finished_data()
 	}
 }
-
-fn serialize_batch(builder: &mut FlatBufferBuilder<'_>) {}
