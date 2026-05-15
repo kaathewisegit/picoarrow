@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
-pub(crate) mod array;
+pub mod array;
 pub(crate) mod bitmap;
 pub(crate) mod fb;
+mod stream;
