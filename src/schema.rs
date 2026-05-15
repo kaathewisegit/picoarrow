@@ -15,6 +15,7 @@ use crate::fb::{
 	Utf8ViewArgs,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Schema {
 	fields: Vec<Field>,
 }
@@ -67,6 +68,7 @@ impl Schema {
 	}
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Field {
 	pub(crate) name: String,
 	pub(crate) nullable: bool,
