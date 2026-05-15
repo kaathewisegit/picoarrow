@@ -25,6 +25,10 @@ impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 		self.validity.null_count()
 	}
 
+	fn memory_size(&self) -> usize {
+		self.validity.memory_size() + self.child.memory_size()
+	}
+
 	fn clear(&mut self) {
 		self.validity.clear();
 		self.child.clear();

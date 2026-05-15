@@ -67,6 +67,10 @@ impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 		self.validity.null_count()
 	}
 
+	fn memory_size(&self) -> usize {
+		self.validity.memory_size() + self.len() * size_of::<T>()
+	}
+
 	fn clear(&mut self) {
 		self.validity.clear();
 		self.values.clear();

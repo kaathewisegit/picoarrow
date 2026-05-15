@@ -8,6 +8,8 @@ pub trait ValidityBuffer {
 
 	fn null_count(&self) -> usize;
 
+	fn memory_size(&self) -> usize;
+
 	fn clear(&mut self);
 
 	fn buffer(&self) -> &[u8];
@@ -23,6 +25,10 @@ impl ValidityBuffer for () {
 	}
 
 	fn null_count(&self) -> usize {
+		0
+	}
+
+	fn memory_size(&self) -> usize {
 		0
 	}
 
@@ -62,6 +68,10 @@ impl ValidityBuffer for Vec<u8> {
 
 	fn null_count(&self) -> usize {
 		self.iter().map(|&b| b.count_ones() as usize).sum()
+	}
+
+	fn memory_size(&self) -> usize {
+		self.len()
 	}
 
 	fn clear(&mut self) {

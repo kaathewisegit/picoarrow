@@ -25,6 +25,12 @@ impl<V: Validity> Array for ArrayBinary<V> {
 		self.validity.null_count()
 	}
 
+	fn memory_size(&self) -> usize {
+		self.validity.memory_size()
+			+ self.offsets.len() + size_of::<u32>()
+			+ self.data.len()
+	}
+
 	fn clear(&mut self) {
 		self.validity.clear();
 		self.offsets.resize(1, 0);
@@ -93,6 +99,12 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 
 	fn null_count(&self) -> usize {
 		self.validity.null_count()
+	}
+
+	fn memory_size(&self) -> usize {
+		self.validity.memory_size()
+			+ self.offsets.len() + size_of::<u32>()
+			+ self.data.len()
 	}
 
 	fn clear(&mut self) {
