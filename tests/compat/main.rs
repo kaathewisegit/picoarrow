@@ -1,20 +1,24 @@
 mod stream;
 
-use arbitrary::{Arbitrary, Unstructured};
+use arbitrary::{Arbitrary, Result, Unstructured};
 use arbtest::arbtest;
 use arrow_array::{
 	Array as _, ArrayRef, BinaryArray, BooleanArray, FixedSizeListArray,
 	Float32Array, Float64Array, StringArray, UInt8Array,
 };
-use arrow_ipc::reader::StreamReader as ArrowStreamReader;
+use arrow_ipc::reader::{
+	FileReader as ArrowFileReader, StreamReader as ArrowStreamReader,
+};
 use picoarrow::{
 	Schema,
 	array::{
 		Array, ArrayBinary, ArrayBoolean, ArrayF32, ArrayF64,
 		ArrayFixedSizeList, ArrayU8, ArrayUtf8, NonNullable,
 	},
-	ipc::{Compression, StreamWriter},
+	ipc::{Compression, FileWriter, StreamWriter},
 };
+
+use std::io::Cursor;
 
 #[derive(Debug, Clone)]
 pub enum AnyArray {
@@ -60,7 +64,7 @@ impl AnyArray {
 		u: &mut Unstructured<'_>,
 		len: usize,
 		primitive_only: bool,
-	) -> arbitrary::Result<Self> {
+	) -> Result<Self> {
 		let end = if primitive_only { 3 } else { 6 };
 		let variant: u8 = u.int_in_range(0..=end)?;
 		match variant {
@@ -245,7 +249,7 @@ impl PartialEq for AnyArray {
 impl Eq for AnyArray {}
 
 impl<'a> Arbitrary<'a> for Batch {
-	fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+	fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self> {
 		let num_cols = u.int_in_range(0..=10)?;
 		let len = u.int_in_range(0..=100)?;
 
@@ -258,47 +262,6 @@ impl<'a> Arbitrary<'a> for Batch {
 
 		Ok(Self { arrays })
 	}
-}
-
-fn serialize_batch(batch: &Batch) -> Vec<u8> {
-	let arrays: Vec<(String, Box<dyn Array>)> = batch
-		.arrays
-		.iter()
-		.map(|(name, arr)| (name.clone(), arr.to_picoarray()))
-		.collect();
-
-	let schema = Schema::from_arrays(
-		arrays.iter()
-			.map(|(name, arr)| (name.as_str(), arr.as_ref())),
-	);
-
-	let buffer = Vec::new();
-	let mut writer =
-		StreamWriter::new(buffer, schema, Compression::None).unwrap();
-
-	let refs: Vec<&dyn Array> =
-		arrays.iter().map(|(_, a)| a.as_ref()).collect();
-
-	writer.write_batch(refs).unwrap();
-	writer.finish().unwrap()
-}
-
-fn deserialize_batch(data: &[u8], original: &Batch) -> Batch {
-	let record_batch = ArrowStreamReader::try_new(&mut &data[..], None)
-		.unwrap()
-		.collect::<Result<Vec<_>, _>>()
-		.unwrap()
-		.into_iter()
-		.next()
-		.unwrap();
-
-	let mut arrays = Vec::new();
-	for (i, (name, original_arr)) in original.arrays.iter().enumerate() {
-		let col = record_batch.column(i);
-		let arr = arrow_to_any(col, original_arr);
-		arrays.push((name.clone(), arr));
-	}
-	Batch { arrays }
 }
 
 fn arrow_to_any(col: &ArrayRef, original: &AnyArray) -> AnyArray {
@@ -377,8 +340,92 @@ fn arrow_to_any(col: &ArrayRef, original: &AnyArray) -> AnyArray {
 	}
 }
 
-#[test]
-fn roundtrip() {
+fn serialize_batch_stream(batch: &Batch, compression: Compression) -> Vec<u8> {
+	let arrays: Vec<(String, Box<dyn Array>)> = batch
+		.arrays
+		.iter()
+		.map(|(name, arr)| (name.clone(), arr.to_picoarray()))
+		.collect();
+
+	let schema = Schema::from_arrays(
+		arrays.iter()
+			.map(|(name, arr)| (name.as_str(), arr.as_ref())),
+	);
+
+	let buffer = Vec::new();
+	let mut writer =
+		StreamWriter::new(buffer, schema, compression).unwrap();
+
+	let refs: Vec<&dyn Array> =
+		arrays.iter().map(|(_, a)| a.as_ref()).collect();
+
+	writer.write_batch(refs).unwrap();
+	writer.finish().unwrap()
+}
+
+// TODO: deduplicate
+fn serialize_batch_file(batch: &Batch, compression: Compression) -> Vec<u8> {
+	let arrays: Vec<(String, Box<dyn Array>)> = batch
+		.arrays
+		.iter()
+		.map(|(name, arr)| (name.clone(), arr.to_picoarray()))
+		.collect();
+
+	let schema = Schema::from_arrays(
+		arrays.iter()
+			.map(|(name, arr)| (name.as_str(), arr.as_ref())),
+	);
+
+	let buffer = Vec::new();
+	let mut writer = FileWriter::new(buffer, schema, compression).unwrap();
+
+	let refs: Vec<&dyn Array> =
+		arrays.iter().map(|(_, a)| a.as_ref()).collect();
+
+	writer.write_batch(refs).unwrap();
+	writer.finish().unwrap();
+	writer.into_inner()
+}
+
+fn deserialize_batch_stream(data: &[u8], original: &Batch) -> Batch {
+	let record_batch = ArrowStreamReader::try_new(&mut &data[..], None)
+		.unwrap()
+		.collect::<Result<Vec<_>, _>>()
+		.unwrap()
+		.into_iter()
+		.next()
+		.unwrap();
+
+	let mut arrays = Vec::new();
+	for (i, (name, original_arr)) in original.arrays.iter().enumerate() {
+		let col = record_batch.column(i);
+		let arr = arrow_to_any(col, original_arr);
+		arrays.push((name.clone(), arr));
+	}
+	Batch { arrays }
+}
+
+// TODO: deduplicate
+fn deserialize_batch_file(data: &[u8], original: &Batch) -> Batch {
+	let cursor = Cursor::new(data);
+	let record_batch = ArrowFileReader::try_new(cursor, None)
+		.unwrap()
+		.collect::<Result<Vec<_>, _>>()
+		.unwrap()
+		.into_iter()
+		.next()
+		.unwrap();
+
+	let mut arrays = Vec::new();
+	for (i, (name, original_arr)) in original.arrays.iter().enumerate() {
+		let col = record_batch.column(i);
+		let arr = arrow_to_any(col, original_arr);
+		arrays.push((name.clone(), arr));
+	}
+	Batch { arrays }
+}
+
+fn check_roundtrip(f: impl Fn(&Batch) -> Batch) {
 	arbtest(|u| {
 		let batch = Batch::arbitrary(u)?;
 
@@ -386,8 +433,7 @@ fn roundtrip() {
 			return Ok(());
 		}
 
-		let encoded = serialize_batch(&batch);
-		let decoded = deserialize_batch(&encoded, &batch);
+		let decoded = f(&batch);
 
 		assert_eq!(
 			batch, decoded,
@@ -397,4 +443,57 @@ fn roundtrip() {
 	})
 	.size_min(2u32.pow(18))
 	.budget_ms(2_000);
+}
+
+#[test]
+fn roundtrip_stream() {
+	check_roundtrip(|batch| {
+		let encoded = serialize_batch_stream(batch, Compression::None);
+		deserialize_batch_stream(&encoded, batch)
+	});
+}
+
+#[test]
+#[cfg(feature = "lz4")]
+fn roundtrip_stream_lz4() {
+	check_roundtrip(|batch| {
+		let encoded = serialize_batch_stream(batch, Compression::LZ4);
+		deserialize_batch_stream(&encoded, batch)
+	});
+}
+
+#[test]
+#[cfg(feature = "zstd")]
+fn roundtrip_stream_zstd() {
+	check_roundtrip(|batch| {
+		let encoded =
+			serialize_batch_stream(batch, Compression::Zstd(0));
+		deserialize_batch_stream(&encoded, batch)
+	});
+}
+
+#[test]
+fn roundtrip_file() {
+	check_roundtrip(|batch| {
+		let encoded = serialize_batch_file(batch, Compression::None);
+		deserialize_batch_file(&encoded, batch)
+	});
+}
+
+#[test]
+#[cfg(feature = "lz4")]
+fn roundtrip_file_lz4() {
+	check_roundtrip(|batch| {
+		let encoded = serialize_batch_file(batch, Compression::LZ4);
+		deserialize_batch_file(&encoded, batch)
+	});
+}
+
+#[test]
+#[cfg(feature = "zstd")]
+fn roundtrip_file_zstd() {
+	check_roundtrip(|batch| {
+		let encoded = serialize_batch_file(batch, Compression::Zstd(0));
+		deserialize_batch_file(&encoded, batch)
+	});
 }

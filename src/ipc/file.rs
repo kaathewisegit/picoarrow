@@ -97,4 +97,12 @@ impl<W: Write> FileWriter<W> {
 
 		Ok(())
 	}
+
+	/// Returns the backing writer passed in `new`
+	///
+	/// This method doesn't close the stream.  `finish` must be called for
+	/// that.
+	pub fn into_inner(self) -> W {
+		self.writer.writer
+	}
 }

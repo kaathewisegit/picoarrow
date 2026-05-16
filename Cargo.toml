@@ -23,7 +23,7 @@ zstd = ["dep:zstd"]
 arbitrary = { version = "1.4.2" }
 arbtest = "0.3.2"
 arrow-array = "58.3.0"
-arrow-ipc = "58.3.0"
+arrow-ipc = { version = "58.3.0", features = ["zstd", "lz4"] }
 
 [lints.rust]
 warnings = "deny"
