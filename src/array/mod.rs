@@ -1,9 +1,11 @@
 use crate::{bitmap::ValidityBuffer, schema::Field, seal};
 
+mod boolean;
 mod fixed_list;
 mod primitive;
 mod variable;
 
+pub use boolean::ArrayBoolean;
 pub use fixed_list::ArrayFixedSizeList;
 pub use primitive::{
 	ArrayF32, ArrayF64, ArrayI8, ArrayI16, ArrayI32, ArrayI64,
