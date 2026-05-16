@@ -1,6 +1,6 @@
 use bytemuck::cast_slice;
 
-use super::{Array, Validity};
+use super::{Array, NonNullable, Nullable, Validity};
 use crate::{
 	bitmap::ValidityBuffer,
 	schema::{DataType, Field},
@@ -79,6 +79,54 @@ impl<V: Validity> ArrayBinary<V> {
 		self.data.extend_from_slice(bytes);
 
 		self.offsets.push(end);
+	}
+
+	pub fn is_null(&self, index: usize) -> bool {
+		self.validity.is_null(index)
+	}
+
+	fn range(&self, index: usize) -> (usize, usize) {
+		let start = self.offsets[index] as usize;
+		let end = self.offsets[index + 1] as usize;
+		(start, end)
+	}
+
+	fn get_unchecked(&self, index: usize) -> &[u8] {
+		let (start, end) = self.range(index);
+		&self.data[start..end]
+	}
+
+	fn get_mut_unchecked(&mut self, index: usize) -> &mut [u8] {
+		let (start, end) = self.range(index);
+		&mut self.data[start..end]
+	}
+}
+
+impl ArrayBinary<Nullable> {
+	pub fn get(&self, index: usize) -> Option<&[u8]> {
+		if self.is_null(index) {
+			None
+		} else {
+			Some(self.get_unchecked(index))
+		}
+	}
+
+	pub fn get_mut(&mut self, index: usize) -> Option<&mut [u8]> {
+		if self.is_null(index) {
+			None
+		} else {
+			Some(self.get_mut_unchecked(index))
+		}
+	}
+}
+
+impl ArrayBinary<NonNullable> {
+	pub fn get(&self, index: usize) -> &[u8] {
+		self.get_unchecked(index)
+	}
+
+	pub fn get_mut(&mut self, index: usize) -> &mut [u8] {
+		self.get_mut_unchecked(index)
 	}
 }
 
@@ -160,6 +208,54 @@ impl<V: Validity> ArrayUtf8<V> {
 		self.data.push_str(value);
 
 		self.offsets.push(end);
+	}
+
+	pub fn is_null(&self, index: usize) -> bool {
+		self.validity.is_null(index)
+	}
+
+	fn range(&self, index: usize) -> (usize, usize) {
+		let start = self.offsets[index] as usize;
+		let end = self.offsets[index + 1] as usize;
+		(start, end)
+	}
+
+	fn get_unchecked(&self, index: usize) -> &str {
+		let (start, end) = self.range(index);
+		&self.data[start..end]
+	}
+
+	fn get_mut_unchecked(&mut self, index: usize) -> &mut str {
+		let (start, end) = self.range(index);
+		&mut self.data[start..end]
+	}
+}
+
+impl ArrayUtf8<Nullable> {
+	pub fn get(&self, index: usize) -> Option<&str> {
+		if self.is_null(index) {
+			None
+		} else {
+			Some(self.get_unchecked(index))
+		}
+	}
+
+	pub fn get_mut(&mut self, index: usize) -> Option<&mut str> {
+		if self.is_null(index) {
+			None
+		} else {
+			Some(self.get_mut_unchecked(index))
+		}
+	}
+}
+
+impl ArrayUtf8<NonNullable> {
+	pub fn get(&self, index: usize) -> &str {
+		self.get_unchecked(index)
+	}
+
+	pub fn get_mut(&mut self, index: usize) -> &mut str {
+		self.get_mut_unchecked(index)
 	}
 }
 
