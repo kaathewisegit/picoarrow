@@ -2,6 +2,11 @@
 name = "picoarrow"
 version = "0.1.0"
 edition = "2024"
+license = "MPL-2.0"
+authors = ["Andrej Kolčin <self@kaathewise.net>"]
+repository = "https://github.com/kaathewisegit/picoarrow"
+keywords = ["arrow", "arrow-ipc"]
+categories = ["encoding"]
 
 [dependencies]
 bytemuck = "1.25.0"
