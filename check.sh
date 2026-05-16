@@ -2,6 +2,8 @@ set -e
 
 FEATURE_SETS="none zstd lz4 zstd,lz4"
 
+cargo fmt --check
+
 for features in $FEATURE_SETS; do
     if [ "$features" = "none" ]; then
         cargo check --no-default-features --tests

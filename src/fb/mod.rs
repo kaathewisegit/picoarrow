@@ -2,6 +2,7 @@
 #[allow(clippy::all)]
 #[allow(nonstandard_style)]
 #[allow(unused_imports)]
+#[rustfmt::skip]
 #[path = "Message_generated.rs"]
 mod generated;
 
