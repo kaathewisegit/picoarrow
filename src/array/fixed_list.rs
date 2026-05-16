@@ -3,6 +3,7 @@ use crate::{
 	Error, Result,
 	bitmap::ValidityBuffer,
 	schema::{DataType, Field},
+	seal,
 };
 
 pub struct ArrayFixedSizeList<A: Array, V: Validity> {
@@ -12,6 +13,7 @@ pub struct ArrayFixedSizeList<A: Array, V: Validity> {
 	child: A,
 }
 
+impl<A: Array, V: Validity> seal::Seal for ArrayFixedSizeList<A, V> {}
 impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 	fn len(&self) -> usize {
 		self.len

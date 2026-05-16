@@ -1,4 +1,4 @@
-use crate::{bitmap::ValidityBuffer, schema::Field};
+use crate::{bitmap::ValidityBuffer, schema::Field, seal};
 
 mod fixed_list;
 mod primitive;
@@ -6,30 +6,31 @@ mod variable;
 
 pub use fixed_list::ArrayFixedSizeList;
 pub use primitive::{
-	ArrayF32, ArrayF64, ArrayI8, ArrayI16, ArrayI32, ArrayI64, ArrayU8,
-	ArrayU16, ArrayU32, ArrayU64,
+	ArrayF32, ArrayF64, ArrayI8, ArrayI16, ArrayI32, ArrayI64,
+	ArrayPrimitive, ArrayU8, ArrayU16, ArrayU32, ArrayU64,
 };
 pub use variable::{ArrayBinary, ArrayUtf8};
 
-// TODO: seal
-pub trait Validity {
+pub trait Validity: seal::Seal {
 	const IS_NULLABLE: bool;
 	type Container: ValidityBuffer;
 }
 
 pub struct Nullable;
+impl seal::Seal for Nullable {}
 impl Validity for Nullable {
 	const IS_NULLABLE: bool = true;
 	type Container = Vec<u8>;
 }
 
 pub struct NonNullable;
+impl seal::Seal for NonNullable {}
 impl Validity for NonNullable {
 	const IS_NULLABLE: bool = false;
 	type Container = ();
 }
 
-pub trait Array {
+pub trait Array: seal::Seal {
 	fn len(&self) -> usize;
 
 	fn is_empty(&self) -> bool;

@@ -7,14 +7,16 @@ use crate::{
 	bitmap::ValidityBuffer,
 	fb::Precision,
 	schema::{DataType, Field},
+	seal,
 };
 
-pub trait Primitive: NoUninit {
+pub trait Primitive: NoUninit + seal::Seal {
 	fn data_type() -> DataType;
 }
 
 macro_rules! impl_primitive_int {
 	($type:ty, $bit_width:expr, $is_signed:expr) => {
+		impl seal::Seal for $type {}
 		impl Primitive for $type {
 			fn data_type() -> DataType {
 				DataType::Int {
@@ -36,6 +38,7 @@ impl_primitive_int!(i64, 64, true);
 
 macro_rules! impl_primitive_float {
 	($type:ty, $kind:ident) => {
+		impl seal::Seal for $type {}
 		impl Primitive for $type {
 			fn data_type() -> DataType {
 				DataType::FloatingPoint {
@@ -54,6 +57,7 @@ pub struct ArrayPrimitive<T: Primitive, V: Validity> {
 	values: Vec<T>,
 }
 
+impl<T: Primitive, V: Validity> seal::Seal for ArrayPrimitive<T, V> {}
 impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 	fn len(&self) -> usize {
 		self.values.len()
@@ -127,6 +131,12 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 		} else {
 			Some(&mut self.values[index])
 		}
+	}
+}
+
+impl<T: Primitive, V: Validity> Default for ArrayPrimitive<T, V> {
+	fn default() -> Self {
+		Self::new()
 	}
 }
 

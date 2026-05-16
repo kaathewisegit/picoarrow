@@ -7,3 +7,7 @@ mod schema;
 
 pub use error::{Error, Result};
 pub use schema::{Field, Schema};
+
+mod seal {
+	pub trait Seal {}
+}

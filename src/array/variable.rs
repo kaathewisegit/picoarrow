@@ -4,6 +4,7 @@ use super::{Array, Validity};
 use crate::{
 	bitmap::ValidityBuffer,
 	schema::{DataType, Field},
+	seal,
 };
 
 pub struct ArrayBinary<V: Validity> {
@@ -12,6 +13,7 @@ pub struct ArrayBinary<V: Validity> {
 	data: Vec<u8>,
 }
 
+impl<V: Validity> seal::Seal for ArrayBinary<V> {}
 impl<V: Validity> Array for ArrayBinary<V> {
 	fn len(&self) -> usize {
 		self.offsets.len() - 1
@@ -88,6 +90,7 @@ pub struct ArrayUtf8<V: Validity> {
 	data: String,
 }
 
+impl<V: Validity> seal::Seal for ArrayUtf8<V> {}
 impl<V: Validity> Array for ArrayUtf8<V> {
 	fn len(&self) -> usize {
 		self.offsets.len() - 1
