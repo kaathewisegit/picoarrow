@@ -33,7 +33,7 @@ impl<V: Validity> Array for ArrayBinary<V> {
 
 	fn memory_size(&self) -> usize {
 		self.validity.memory_size()
-			+ self.offsets.len() + size_of::<u32>()
+			+ self.offsets.len() * size_of::<u32>()
 			+ self.data.len()
 	}
 
@@ -114,7 +114,7 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 
 	fn memory_size(&self) -> usize {
 		self.validity.memory_size()
-			+ self.offsets.len() + size_of::<u32>()
+			+ self.offsets.len() * size_of::<u32>()
 			+ self.data.len()
 	}
 
