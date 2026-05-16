@@ -1,11 +1,30 @@
 use std::{error, fmt, io::Error as IoError};
 
+/// The Result type of `picoarrow`'s functions and methods
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// A union of all errors which can be returned by `picoarrow`
+///
+/// Some payloads will be boxed in order to ensure that the size of `Error` is
+/// at most 16 bytes.
 #[derive(Debug)]
 pub enum Error {
+	/// Errors returned by underlying writers used by the IPC serializers
 	WriteFailed(Box<IoError>),
-	WrongNestedLength { expected: i32, got: usize },
+
+	/// Used by [`FixedSizeList::push`][p]
+	///
+	/// [p]: super::array::ArrayFixedSizeList::push
+	WrongNestedLength {
+		/// The child array must have been longer by this much after the
+		/// call to `push`
+		expected: i32,
+		/// The actual increase in length of the child array
+		got: usize,
+	},
+
+	/// Returned by IPC serializers when a batch has two arrays of different
+	/// lengths.
 	BatchDifferentLengths(Box<(usize, usize)>),
 }
 

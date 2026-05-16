@@ -15,6 +15,8 @@ use crate::fb::{
 	Utf8ViewArgs,
 };
 
+/// Describes the types of a collection of arrays which can be serialized via
+/// Arrow IPC
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Schema {
 	fields: Vec<Field>,
@@ -68,6 +70,10 @@ impl Schema {
 	}
 }
 
+/// A named column in a record/row batch
+///
+/// Fields can have children, which can also be named.  But `picoarrow` only
+/// supports lists, so nested arrays will always have a name of `item`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Field {
 	pub(crate) name: String,

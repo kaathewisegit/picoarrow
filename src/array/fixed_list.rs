@@ -76,6 +76,14 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 		}
 	}
 
+	/// Push a new list to the array
+	///
+	/// This method takes a closure which returns the nested list.  After
+	/// the closure yields `push` checks that the length has increased by
+	/// exactly `size` and returns [`Error::WrongNestedLength`].
+	///
+	/// On failure the internal state of this array gets corrupted, so it
+	/// can no longer be used.
 	pub fn push<F>(&mut self, f: F) -> Result<()>
 	where
 		F: FnOnce(&mut A),
