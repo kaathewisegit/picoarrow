@@ -20,6 +20,8 @@ lz4 = ["dep:lz4_flex"]
 zstd = ["dep:zstd"]
 
 [dev-dependencies]
+arbitrary = { version = "1.4.2" }
+arbtest = "0.3.2"
 arrow-array = "58.3.0"
 arrow-ipc = "58.3.0"
 
