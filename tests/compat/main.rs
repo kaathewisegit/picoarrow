@@ -4,7 +4,9 @@ use arbitrary::{Arbitrary, Result, Unstructured};
 use arbtest::arbtest;
 use arrow_array::{
 	Array as _, ArrayRef, BinaryArray, BooleanArray, FixedSizeListArray,
-	Float32Array, Float64Array, StringArray, UInt8Array,
+	Float32Array, Float64Array, Int8Array, Int16Array, Int32Array,
+	Int64Array, StringArray, UInt8Array, UInt16Array, UInt32Array,
+	UInt64Array,
 };
 use arrow_ipc::reader::{
 	FileReader as ArrowFileReader, StreamReader as ArrowStreamReader,
@@ -13,7 +15,8 @@ use picoarrow::{
 	Schema,
 	array::{
 		Array, ArrayBinary, ArrayBoolean, ArrayF32, ArrayF64,
-		ArrayFixedSizeList, ArrayU8, ArrayUtf8, NonNullable,
+		ArrayFixedSizeList, ArrayI8, ArrayI16, ArrayI32, ArrayI64,
+		ArrayU8, ArrayU16, ArrayU32, ArrayU64, ArrayUtf8, NonNullable,
 	},
 	ipc::{Compression, FileWriter, StreamWriter},
 };
@@ -24,7 +27,13 @@ use std::io::Cursor;
 pub enum AnyArray {
 	Bool(Vec<bool>),
 	U8(Vec<u8>),
-	// TODO: other integer variants
+	U16(Vec<u16>),
+	U32(Vec<u32>),
+	U64(Vec<u64>),
+	I8(Vec<i8>),
+	I16(Vec<i16>),
+	I32(Vec<i32>),
+	I64(Vec<i64>),
 	F32(Vec<f32>),
 	F64(Vec<f64>),
 
@@ -65,7 +74,7 @@ impl AnyArray {
 		len: usize,
 		primitive_only: bool,
 	) -> Result<Self> {
-		let end = if primitive_only { 3 } else { 6 };
+		let end = if primitive_only { 9 } else { 13 };
 		let variant: u8 = u.int_in_range(0..=end)?;
 		match variant {
 			0 => {
@@ -85,18 +94,67 @@ impl AnyArray {
 			2 => {
 				let mut v = Vec::with_capacity(len);
 				for _ in 0..len {
+					v.push(u16::arbitrary(u)?);
+				}
+				Ok(Self::U16(v))
+			}
+			3 => {
+				let mut v = Vec::with_capacity(len);
+				for _ in 0..len {
+					v.push(u32::arbitrary(u)?);
+				}
+				Ok(Self::U32(v))
+			}
+			4 => {
+				let mut v = Vec::with_capacity(len);
+				for _ in 0..len {
+					v.push(u64::arbitrary(u)?);
+				}
+				Ok(Self::U64(v))
+			}
+			5 => {
+				let mut v = Vec::with_capacity(len);
+				for _ in 0..len {
+					v.push(i8::arbitrary(u)?);
+				}
+				Ok(Self::I8(v))
+			}
+			6 => {
+				let mut v = Vec::with_capacity(len);
+				for _ in 0..len {
+					v.push(i16::arbitrary(u)?);
+				}
+				Ok(Self::I16(v))
+			}
+			7 => {
+				let mut v = Vec::with_capacity(len);
+				for _ in 0..len {
+					v.push(i32::arbitrary(u)?);
+				}
+				Ok(Self::I32(v))
+			}
+			8 => {
+				let mut v = Vec::with_capacity(len);
+				for _ in 0..len {
+					v.push(i64::arbitrary(u)?);
+				}
+				Ok(Self::I64(v))
+			}
+			9 => {
+				let mut v = Vec::with_capacity(len);
+				for _ in 0..len {
 					v.push(f32::arbitrary(u)?);
 				}
 				Ok(Self::F32(v))
 			}
-			3 => {
+			10 => {
 				let mut v = Vec::with_capacity(len);
 				for _ in 0..len {
 					v.push(f64::arbitrary(u)?);
 				}
 				Ok(Self::F64(v))
 			}
-			4 => {
+			11 => {
 				let mut v = Vec::with_capacity(len);
 				for _ in 0..len {
 					let s_len = u.int_in_range(0..=32)?;
@@ -106,7 +164,7 @@ impl AnyArray {
 				}
 				Ok(Self::Utf8(v))
 			}
-			5 => {
+			12 => {
 				let mut v = Vec::with_capacity(len);
 				for _ in 0..len {
 					let b_len = u.int_in_range(0..=32)?;
@@ -115,7 +173,7 @@ impl AnyArray {
 				}
 				Ok(Self::Binary(v))
 			}
-			6 => {
+			13 => {
 				let size = u.int_in_range(1..=8)?;
 				let child_len = size as usize * len;
 				let child = Self::arbitrary_with_len(
@@ -131,35 +189,49 @@ impl AnyArray {
 	}
 
 	fn to_picoarray(&self) -> Box<dyn Array> {
+		macro_rules! push_primitive {
+			($values:expr, $arr_ty:ty) => {{
+				let mut arr = <$arr_ty>::new();
+				for &val in $values {
+					arr.push(val);
+				}
+				Box::new(arr) as Box<dyn Array>
+			}};
+		}
+
 		match self {
 			Self::Bool(v) => {
-				let mut arr =
-					ArrayBoolean::<NonNullable>::new();
-				for &val in v {
-					arr.push(val);
-				}
-				Box::new(arr)
+				push_primitive!(v, ArrayBoolean<NonNullable>)
 			}
 			Self::U8(v) => {
-				let mut arr = ArrayU8::<NonNullable>::new();
-				for &val in v {
-					arr.push(val);
-				}
-				Box::new(arr)
+				push_primitive!(v, ArrayU8<NonNullable>)
+			}
+			Self::U16(v) => {
+				push_primitive!(v, ArrayU16<NonNullable>)
+			}
+			Self::U32(v) => {
+				push_primitive!(v, ArrayU32<NonNullable>)
+			}
+			Self::U64(v) => {
+				push_primitive!(v, ArrayU64<NonNullable>)
+			}
+			Self::I8(v) => {
+				push_primitive!(v, ArrayI8<NonNullable>)
+			}
+			Self::I16(v) => {
+				push_primitive!(v, ArrayI16<NonNullable>)
+			}
+			Self::I32(v) => {
+				push_primitive!(v, ArrayI32<NonNullable>)
+			}
+			Self::I64(v) => {
+				push_primitive!(v, ArrayI64<NonNullable>)
 			}
 			Self::F32(v) => {
-				let mut arr = ArrayF32::<NonNullable>::new();
-				for &val in v {
-					arr.push(val);
-				}
-				Box::new(arr)
+				push_primitive!(v, ArrayF32<NonNullable>)
 			}
 			Self::F64(v) => {
-				let mut arr = ArrayF64::<NonNullable>::new();
-				for &val in v {
-					arr.push(val);
-				}
-				Box::new(arr)
+				push_primitive!(v, ArrayF64<NonNullable>)
 			}
 			Self::Utf8(v) => {
 				let mut arr = ArrayUtf8::<NonNullable>::new();
@@ -187,6 +259,41 @@ impl AnyArray {
 						ArrayU8<NonNullable>,
 						size
 					),
+					AnyArray::U16(v) => fsl_to_pico!(
+						v,
+						ArrayU16<NonNullable>,
+						size
+					),
+					AnyArray::U32(v) => fsl_to_pico!(
+						v,
+						ArrayU32<NonNullable>,
+						size
+					),
+					AnyArray::U64(v) => fsl_to_pico!(
+						v,
+						ArrayU64<NonNullable>,
+						size
+					),
+					AnyArray::I8(v) => fsl_to_pico!(
+						v,
+						ArrayI8<NonNullable>,
+						size
+					),
+					AnyArray::I16(v) => fsl_to_pico!(
+						v,
+						ArrayI16<NonNullable>,
+						size
+					),
+					AnyArray::I32(v) => fsl_to_pico!(
+						v,
+						ArrayI32<NonNullable>,
+						size
+					),
+					AnyArray::I64(v) => fsl_to_pico!(
+						v,
+						ArrayI64<NonNullable>,
+						size
+					),
 					AnyArray::F32(v) => fsl_to_pico!(
 						v,
 						ArrayF32<NonNullable>,
@@ -211,6 +318,13 @@ impl PartialEq for AnyArray {
 		match (self, other) {
 			(Self::Bool(a), Self::Bool(b)) => a == b,
 			(Self::U8(a), Self::U8(b)) => a == b,
+			(Self::U16(a), Self::U16(b)) => a == b,
+			(Self::U32(a), Self::U32(b)) => a == b,
+			(Self::U64(a), Self::U64(b)) => a == b,
+			(Self::I8(a), Self::I8(b)) => a == b,
+			(Self::I16(a), Self::I16(b)) => a == b,
+			(Self::I32(a), Self::I32(b)) => a == b,
+			(Self::I64(a), Self::I64(b)) => a == b,
 			(Self::F32(a), Self::F32(b)) => {
 				a.len() == b.len()
 					&& a.iter().zip(b.iter()).all(
@@ -265,42 +379,49 @@ impl<'a> Arbitrary<'a> for Batch {
 }
 
 fn arrow_to_any(col: &ArrayRef, original: &AnyArray) -> AnyArray {
+	macro_rules! downcast_primitive {
+		($arr_ty:ty, $variant:ident) => {{
+			let arr =
+				col.as_any().downcast_ref::<$arr_ty>().unwrap();
+			AnyArray::$variant(
+				(0..arr.len()).map(|i| arr.value(i)).collect(),
+			)
+		}};
+	}
+
 	match original {
 		AnyArray::Bool(_) => {
-			let arr = col
-				.as_any()
-				.downcast_ref::<BooleanArray>()
-				.unwrap();
-			AnyArray::Bool(
-				(0..arr.len()).map(|i| arr.value(i)).collect(),
-			)
+			downcast_primitive!(BooleanArray, Bool)
 		}
 		AnyArray::U8(_) => {
-			let arr = col
-				.as_any()
-				.downcast_ref::<UInt8Array>()
-				.unwrap();
-			AnyArray::U8(
-				(0..arr.len()).map(|i| arr.value(i)).collect(),
-			)
+			downcast_primitive!(UInt8Array, U8)
+		}
+		AnyArray::U16(_) => {
+			downcast_primitive!(UInt16Array, U16)
+		}
+		AnyArray::U32(_) => {
+			downcast_primitive!(UInt32Array, U32)
+		}
+		AnyArray::U64(_) => {
+			downcast_primitive!(UInt64Array, U64)
+		}
+		AnyArray::I8(_) => {
+			downcast_primitive!(Int8Array, I8)
+		}
+		AnyArray::I16(_) => {
+			downcast_primitive!(Int16Array, I16)
+		}
+		AnyArray::I32(_) => {
+			downcast_primitive!(Int32Array, I32)
+		}
+		AnyArray::I64(_) => {
+			downcast_primitive!(Int64Array, I64)
 		}
 		AnyArray::F32(_) => {
-			let arr = col
-				.as_any()
-				.downcast_ref::<Float32Array>()
-				.unwrap();
-			AnyArray::F32(
-				(0..arr.len()).map(|i| arr.value(i)).collect(),
-			)
+			downcast_primitive!(Float32Array, F32)
 		}
 		AnyArray::F64(_) => {
-			let arr = col
-				.as_any()
-				.downcast_ref::<Float64Array>()
-				.unwrap();
-			AnyArray::F64(
-				(0..arr.len()).map(|i| arr.value(i)).collect(),
-			)
+			downcast_primitive!(Float64Array, F64)
 		}
 		AnyArray::Utf8(_) => {
 			let arr = col
