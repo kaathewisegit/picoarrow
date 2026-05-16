@@ -19,6 +19,8 @@ mod variable;
 
 pub use boolean::ArrayBoolean;
 pub use fixed_list::ArrayFixedSizeList;
+#[cfg(feature = "half")]
+pub use primitive::ArrayF16;
 pub use primitive::{
 	ArrayF32, ArrayF64, ArrayI8, ArrayI16, ArrayI32, ArrayI64,
 	ArrayPrimitive, ArrayU8, ArrayU16, ArrayU32, ArrayU64,

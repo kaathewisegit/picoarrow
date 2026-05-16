@@ -48,9 +48,10 @@ macro_rules! impl_primitive_float {
 		}
 	};
 }
-// TODO: feature-gated half
 impl_primitive_float!(f32, SINGLE);
 impl_primitive_float!(f64, DOUBLE);
+#[cfg(feature = "half")]
+impl_primitive_float!(half::f16, HALF);
 
 /// An array of primitive (uniform size, copyable) arrow types
 pub struct ArrayPrimitive<T: Primitive, V: Validity> {
@@ -187,3 +188,6 @@ pub type ArrayI64<V> = ArrayPrimitive<i64, V>;
 pub type ArrayF32<V> = ArrayPrimitive<f32, V>;
 /// An array of [`f64`]'s, called double precision floats in Arrow
 pub type ArrayF64<V> = ArrayPrimitive<f64, V>;
+/// An array of [`f16`][half::f16]'s from the `half` crate
+#[cfg(feature = "half")]
+pub type ArrayF16<V> = ArrayPrimitive<half::f16, V>;

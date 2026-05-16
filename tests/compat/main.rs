@@ -2,6 +2,8 @@ mod stream;
 
 use arbitrary::{Arbitrary, Result, Unstructured};
 use arbtest::arbtest;
+#[cfg(feature = "half")]
+use arrow_array::Float16Array;
 use arrow_array::{
 	Array as _, ArrayRef, BinaryArray, BooleanArray, FixedSizeListArray,
 	Float32Array, Float64Array, Int8Array, Int16Array, Int32Array,
@@ -11,6 +13,10 @@ use arrow_array::{
 use arrow_ipc::reader::{
 	FileReader as ArrowFileReader, StreamReader as ArrowStreamReader,
 };
+#[cfg(feature = "half")]
+use half::f16;
+#[cfg(feature = "half")]
+use picoarrow::array::ArrayF16;
 use picoarrow::{
 	Schema,
 	array::{
@@ -36,11 +42,16 @@ pub enum AnyArray {
 	I64(Vec<i64>),
 	F32(Vec<f32>),
 	F64(Vec<f64>),
+	#[cfg(feature = "half")]
+	F16(Vec<f16>),
 
 	Utf8(Vec<String>),
 	Binary(Vec<Vec<u8>>),
 
-	FixedSizeList { size: u32, child: Box<AnyArray> },
+	FixedSizeList {
+		size: u32,
+		child: Box<AnyArray>,
+	},
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,9 +85,15 @@ impl AnyArray {
 		len: usize,
 		primitive_only: bool,
 	) -> Result<Self> {
-		let end = if primitive_only { 9 } else { 13 };
-		let variant: u8 = u.int_in_range(0..=end)?;
-		match variant {
+		let mut variants = Vec::<u8>::from_iter(0..=10);
+		if cfg!(feature = "half") {
+			variants.push(11)
+		};
+		if !primitive_only {
+			variants.extend(12..=14);
+		}
+
+		match *u.choose(&variants)? {
 			0 => {
 				let mut v = Vec::with_capacity(len);
 				for _ in 0..len {
@@ -154,7 +171,15 @@ impl AnyArray {
 				}
 				Ok(Self::F64(v))
 			}
+			#[cfg(feature = "half")]
 			11 => {
+				let mut v = Vec::with_capacity(len);
+				for _ in 0..len {
+					v.push(f16::arbitrary(u)?);
+				}
+				Ok(Self::F16(v))
+			}
+			12 => {
 				let mut v = Vec::with_capacity(len);
 				for _ in 0..len {
 					let s_len = u.int_in_range(0..=32)?;
@@ -164,7 +189,7 @@ impl AnyArray {
 				}
 				Ok(Self::Utf8(v))
 			}
-			12 => {
+			13 => {
 				let mut v = Vec::with_capacity(len);
 				for _ in 0..len {
 					let b_len = u.int_in_range(0..=32)?;
@@ -173,7 +198,7 @@ impl AnyArray {
 				}
 				Ok(Self::Binary(v))
 			}
-			13 => {
+			14 => {
 				let size = u.int_in_range(1..=8)?;
 				let child_len = size as usize * len;
 				let child = Self::arbitrary_with_len(
@@ -232,6 +257,10 @@ impl AnyArray {
 			}
 			Self::F64(v) => {
 				push_primitive!(v, ArrayF64<NonNullable>)
+			}
+			#[cfg(feature = "half")]
+			Self::F16(v) => {
+				push_primitive!(v, ArrayF16<NonNullable>)
 			}
 			Self::Utf8(v) => {
 				let mut arr = ArrayUtf8::<NonNullable>::new();
@@ -304,6 +333,12 @@ impl AnyArray {
 						ArrayF64<NonNullable>,
 						size
 					),
+					#[cfg(feature = "half")]
+					AnyArray::F16(v) => fsl_to_pico!(
+						v,
+						ArrayF16<NonNullable>,
+						size
+					),
 					_ => panic!(
 						"unsupported FixedSizeList child {child:?}"
 					),
@@ -315,6 +350,18 @@ impl AnyArray {
 
 impl PartialEq for AnyArray {
 	fn eq(&self, other: &Self) -> bool {
+		macro_rules! floats_eq {
+			($a:expr, $b:expr) => {
+				$a.len() == $b.len()
+					&& $a.iter().zip($b.iter()).all(
+						|(x, y)| {
+							x.to_bits()
+								== y.to_bits()
+						},
+					)
+			};
+		}
+
 		match (self, other) {
 			(Self::Bool(a), Self::Bool(b)) => a == b,
 			(Self::U8(a), Self::U8(b)) => a == b,
@@ -325,24 +372,11 @@ impl PartialEq for AnyArray {
 			(Self::I16(a), Self::I16(b)) => a == b,
 			(Self::I32(a), Self::I32(b)) => a == b,
 			(Self::I64(a), Self::I64(b)) => a == b,
-			(Self::F32(a), Self::F32(b)) => {
-				a.len() == b.len()
-					&& a.iter().zip(b.iter()).all(
-						|(x, y)| {
-							x.to_bits()
-								== y.to_bits()
-						},
-					)
-			}
-			(Self::F64(a), Self::F64(b)) => {
-				a.len() == b.len()
-					&& a.iter().zip(b.iter()).all(
-						|(x, y)| {
-							x.to_bits()
-								== y.to_bits()
-						},
-					)
-			}
+			(Self::F32(a), Self::F32(b)) => floats_eq!(a, b),
+			(Self::F64(a), Self::F64(b)) => floats_eq!(a, b),
+			#[cfg(feature = "half")]
+			(Self::F16(a), Self::F16(b)) => floats_eq!(a, b),
+
 			(Self::Utf8(a), Self::Utf8(b)) => a == b,
 			(Self::Binary(a), Self::Binary(b)) => a == b,
 			(
@@ -422,6 +456,10 @@ fn arrow_to_any(col: &ArrayRef, original: &AnyArray) -> AnyArray {
 		}
 		AnyArray::F64(_) => {
 			downcast_primitive!(Float64Array, F64)
+		}
+		#[cfg(feature = "half")]
+		AnyArray::F16(_) => {
+			downcast_primitive!(Float16Array, F16)
 		}
 		AnyArray::Utf8(_) => {
 			let arr = col

@@ -11,6 +11,7 @@ categories = ["encoding"]
 [dependencies]
 bytemuck = "1.25.0"
 flatbuffers = "25.12.19"
+half = { version = "2.7.1", optional = true, features = ["bytemuck"] }
 lz4_flex = { version = "0.13.1", optional = true, default-features = false, features = ["frame"] }
 zstd = { version = "0.13.3", optional = true, default-features = false }
 
@@ -18,12 +19,14 @@ zstd = { version = "0.13.3", optional = true, default-features = false }
 default = ["zstd"]
 lz4 = ["dep:lz4_flex"]
 zstd = ["dep:zstd"]
+half = ["dep:half"]
 
 [dev-dependencies]
 arbitrary = { version = "1.4.2" }
 arbtest = "0.3.2"
 arrow-array = "58.3.0"
 arrow-ipc = { version = "58.3.0", features = ["zstd", "lz4"] }
+half = { version = "2.7.1", features = ["arbitrary"] }
 
 [lints.rust]
 warnings = "deny"

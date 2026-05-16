@@ -1,6 +1,6 @@
 set -e
 
-FEATURE_SETS="none zstd lz4 zstd,lz4"
+FEATURE_SETS="none half zstd lz4 zstd,lz4 zstd,lz4,half"
 
 cargo fmt --check
 
