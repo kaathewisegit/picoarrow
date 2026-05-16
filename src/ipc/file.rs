@@ -16,6 +16,10 @@ pub struct FileWriter<W> {
 }
 
 impl<W: Write> FileWriter<W> {
+	/// Creates a new file IPC format writer
+	///
+	/// Attempts to write to the passed writer, see [`StreamWriter::new`]
+	/// for details on that behavior.
 	pub fn new(
 		mut writer: W,
 		schema: Schema,
@@ -35,6 +39,9 @@ impl<W: Write> FileWriter<W> {
 		})
 	}
 
+	/// Write a record batch
+	///
+	/// See [`StreamWriter::write_batch`] for details.
 	pub fn write_batch<'a, I>(&mut self, arrays: I) -> Result<()>
 	where
 		I: IntoIterator<Item = &'a dyn Array>,
@@ -56,6 +63,7 @@ impl<W: Write> FileWriter<W> {
 		Ok(())
 	}
 
+	/// Write the data footer and flush the writer
 	pub fn finish(&mut self) -> Result<()> {
 		self.writer.write_eos()?;
 

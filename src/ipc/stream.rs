@@ -23,6 +23,12 @@ use crate::{
 	schema::Schema,
 };
 
+/// An IPC writer for [the streaming format][s]
+///
+/// The format consists of a header in form of a schema and a number of record
+/// batches.  `StreamWriter` currently doesn't support dictionaries.
+///
+/// [s]: https://arrow.apache.org/docs/format/Columnar.html#ipc-streaming-format
 pub struct StreamWriter<W> {
 	pub(crate) buf_metadata: Vec<u8>,
 	pub(crate) buf_data: Vec<u8>,
@@ -44,6 +50,10 @@ fn write_metadata<W: Write>(w: &mut W, metadata: &[u8]) -> Result<(), IoError> {
 }
 
 impl<W: Write> StreamWriter<W> {
+	/// Creates a new writer
+	///
+	/// This method will attempt to write the schema to the passed writer
+	/// and returns [`Error::WriteFailed`] on failure.
 	pub fn new(
 		mut writer: W,
 		schema: Schema,
@@ -71,6 +81,11 @@ impl<W: Write> StreamWriter<W> {
 		})
 	}
 
+	/// Write a set of arrays
+	///
+	/// They must be passed in exactly the same order they were in the
+	/// schema.
+	// TODO: schema verification
 	pub fn write_batch<'a, I>(&mut self, arrays: I) -> Result<()>
 	where
 		I: IntoIterator<Item = &'a dyn Array>,
@@ -105,6 +120,7 @@ impl<W: Write> StreamWriter<W> {
 		Ok(())
 	}
 
+	/// Flushes the destination writer and returns it
 	pub fn finish(mut self) -> Result<W, IoError> {
 		self.writer.flush()?;
 		Ok(self.writer)
