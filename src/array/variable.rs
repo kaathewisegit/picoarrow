@@ -7,6 +7,10 @@ use crate::{
 	seal,
 };
 
+/// An array of binary slices
+///
+/// This is the small version which only supports up to 2GiB of data (combined
+/// length of all items).
 pub struct ArrayBinary<V: Validity> {
 	validity: V::Container,
 	offsets: Vec<u32>,
@@ -84,6 +88,10 @@ impl<V: Validity> Default for ArrayBinary<V> {
 	}
 }
 
+/// An array of string slices
+///
+/// This is the small version which only supports up to 2GiB of data (combined
+/// length of all items).
 pub struct ArrayUtf8<V: Validity> {
 	validity: V::Container,
 	offsets: Vec<u32>,

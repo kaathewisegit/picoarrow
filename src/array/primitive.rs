@@ -52,6 +52,7 @@ macro_rules! impl_primitive_float {
 impl_primitive_float!(f32, SINGLE);
 impl_primitive_float!(f64, DOUBLE);
 
+/// An array of primitive (uniform size, copyable) arrow types
 pub struct ArrayPrimitive<T: Primitive, V: Validity> {
 	validity: V::Container,
 	values: Vec<T>,
@@ -154,15 +155,35 @@ impl<T: Primitive> DerefMut for ArrayPrimitive<T, NonNullable> {
 	}
 }
 
+/// An array of [`u8`]'s.
+///
+/// It is restricted by the API of [`ArrayPrimitive`] and treats each byte as an
+/// individual item.  Use [`ArrayBinary`][b] for keeping track of
+/// variable-length slices or `FixedSizeBinary` (TODO) for arbitrary values of
+/// the same size[^uuid].
+///
+/// [^uuid]: That's how Arrow [defines UUIDs][uuid], for example.
+///
+/// [b]: super::ArrayBinary
+/// [uuid]: https://arrow.apache.org/docs/format/Columnar.html#:~:text=Arrow%20specifies,messages
 pub type ArrayU8<V> = ArrayPrimitive<u8, V>;
+/// An array of [`u16`]'s
 pub type ArrayU16<V> = ArrayPrimitive<u16, V>;
+/// An array of [`u32`]'s
 pub type ArrayU32<V> = ArrayPrimitive<u32, V>;
+/// An array of [`u64`]'s
 pub type ArrayU64<V> = ArrayPrimitive<u64, V>;
 
+/// An array of [`i8`]'s
 pub type ArrayI8<V> = ArrayPrimitive<i8, V>;
+/// An array of [`i16`]'s
 pub type ArrayI16<V> = ArrayPrimitive<i16, V>;
+/// An array of [`i32`]'s
 pub type ArrayI32<V> = ArrayPrimitive<i32, V>;
+/// An array of [`i64`]'s
 pub type ArrayI64<V> = ArrayPrimitive<i64, V>;
 
-pub type ArrayF64<V> = ArrayPrimitive<f64, V>;
+/// An array of [`f32`]'s, called single precision floats in Arrow
 pub type ArrayF32<V> = ArrayPrimitive<f32, V>;
+/// An array of [`f64`]'s, called double precision floats in Arrow
+pub type ArrayF64<V> = ArrayPrimitive<f64, V>;

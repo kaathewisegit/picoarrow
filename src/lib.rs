@@ -1,3 +1,8 @@
+//! A tiny package which implements a subset of [Apache Arrow][aa]
+//! functionality.
+//!
+//! [aa]: https://arrow.apache.org/
+
 pub mod array;
 pub(crate) mod bitmap;
 mod error;

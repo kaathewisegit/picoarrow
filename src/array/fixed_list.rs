@@ -6,6 +6,7 @@ use crate::{
 	seal,
 };
 
+/// An array of lists with uniform length
 pub struct ArrayFixedSizeList<A: Array, V: Validity> {
 	len: usize,
 	size: i32,
@@ -60,7 +61,13 @@ impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 }
 
 impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
+	/// A new fixed-sized list array with items from `child`
+	///
+	/// # Panics
+	///
+	/// Panics if `size < 0`
 	pub fn new(child: A, size: i32) -> Self {
+		assert!(size > 0);
 		Self {
 			len: 0,
 			size,

@@ -8,6 +8,11 @@ use crate::{
 	seal,
 };
 
+/// An array of booleans
+///
+/// Unlike other [primitive arrays][`super::ArrayPrimitive`], this array
+/// compresses its items storing one boolean per bit (similar to the optional
+/// `std::vector<bool>` optimization).
 pub struct ArrayBoolean<V: Validity> {
 	len: usize,
 	validity: V::Container,
