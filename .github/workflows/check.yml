@@ -14,4 +14,4 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - run: sh check.sh
+      - run: sh check.sh --full
