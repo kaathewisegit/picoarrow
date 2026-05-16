@@ -110,6 +110,12 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 		}
 	}
 
+	pub fn from_vec(values: Vec<T>) -> Self {
+		let mut validity = V::Container::new();
+		validity.push_many(0, true, values.len());
+		Self { validity, values }
+	}
+
 	pub fn push(&mut self, value: T) {
 		self.validity.push(self.len(), true);
 		self.values.push(value);
@@ -153,6 +159,12 @@ impl<T: Primitive> Deref for ArrayPrimitive<T, NonNullable> {
 impl<T: Primitive> DerefMut for ArrayPrimitive<T, NonNullable> {
 	fn deref_mut(&mut self) -> &mut [T] {
 		&mut self.values
+	}
+}
+
+impl<T: Primitive> From<Vec<T>> for ArrayPrimitive<T, NonNullable> {
+	fn from(values: Vec<T>) -> Self {
+		Self::from_vec(values)
 	}
 }
 

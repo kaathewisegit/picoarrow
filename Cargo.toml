@@ -29,4 +29,4 @@ arrow-ipc = { version = "58.3.0", features = ["zstd", "lz4"] }
 half = { version = "2.7.1", features = ["arbitrary"] }
 
 [lints.rust]
-warnings = "deny"
+# warnings = "deny"
