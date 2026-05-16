@@ -8,13 +8,17 @@ use std::{
 };
 
 use super::Compression;
+#[cfg(any(feature = "zstd", feature = "lz4"))]
+use crate::fb::{
+	BodyCompression, BodyCompressionArgs, BodyCompressionMethod,
+	CompressionType,
+};
 use crate::{
 	Error, Result,
 	array::Array,
 	fb::{
-		BodyCompression, BodyCompressionArgs, BodyCompressionMethod,
-		Buffer, CompressionType, FieldNode, Message, MessageArgs,
-		MessageHeader, MetadataVersion, RecordBatch, RecordBatchArgs,
+		Buffer, FieldNode, Message, MessageArgs, MessageHeader,
+		MetadataVersion, RecordBatch, RecordBatchArgs,
 	},
 	schema::Schema,
 };

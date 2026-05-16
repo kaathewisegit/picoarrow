@@ -17,6 +17,11 @@ fn main() {
 	let nested = ArrayF64::<NonNullable>::new();
 	let mut fs = ArrayFixedSizeList::<_, NonNullable>::new(nested, 4);
 
+	#[cfg(not(feature = "zstd"))]
+	let compression = Compression::None;
+	#[cfg(feature = "zstd")]
+	let compression = Compression::Zstd(3);
+
 	let file = File::create("target/tmp.ipc.stream").unwrap();
 	let mut writer = FileWriter::new(
 		file,
@@ -25,8 +30,7 @@ fn main() {
 			b.make_field("boolean+nullable"),
 			fs.make_field("nested"),
 		]),
-		Compression::Zstd(3),
-		// Compression::None,
+		compression,
 	)
 	.unwrap();
 
