@@ -93,7 +93,7 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 		let after = self.child.len();
 
 		if after - before != self.size as usize {
-			return Err(Error::WrongNestedLength {
+			return Err(Error::WrongListAppendLength {
 				expected: self.size,
 				got: after - before,
 			});

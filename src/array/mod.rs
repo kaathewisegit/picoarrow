@@ -13,11 +13,13 @@
 use crate::{bitmap::ValidityBuffer, schema::Field, seal};
 
 mod boolean;
+mod fixed_binary;
 mod fixed_list;
 mod primitive;
 mod variable;
 
 pub use boolean::ArrayBoolean;
+pub use fixed_binary::ArrayFixedBinary;
 pub use fixed_list::ArrayFixedSizeList;
 #[cfg(feature = "half")]
 pub use primitive::ArrayF16;

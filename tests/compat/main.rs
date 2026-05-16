@@ -5,10 +5,10 @@ use arbtest::arbtest;
 #[cfg(feature = "half")]
 use arrow_array::Float16Array;
 use arrow_array::{
-	Array as _, ArrayRef, BinaryArray, BooleanArray, FixedSizeListArray,
-	Float32Array, Float64Array, Int8Array, Int16Array, Int32Array,
-	Int64Array, StringArray, UInt8Array, UInt16Array, UInt32Array,
-	UInt64Array,
+	Array as _, ArrayRef, BinaryArray, BooleanArray, FixedSizeBinaryArray,
+	FixedSizeListArray, Float32Array, Float64Array, Int8Array, Int16Array,
+	Int32Array, Int64Array, StringArray, UInt8Array, UInt16Array,
+	UInt32Array, UInt64Array,
 };
 use arrow_ipc::reader::{
 	FileReader as ArrowFileReader, StreamReader as ArrowStreamReader,
@@ -21,8 +21,9 @@ use picoarrow::{
 	Schema,
 	array::{
 		Array, ArrayBinary, ArrayBoolean, ArrayF32, ArrayF64,
-		ArrayFixedSizeList, ArrayI8, ArrayI16, ArrayI32, ArrayI64,
-		ArrayU8, ArrayU16, ArrayU32, ArrayU64, ArrayUtf8, NonNullable,
+		ArrayFixedBinary, ArrayFixedSizeList, ArrayI8, ArrayI16,
+		ArrayI32, ArrayI64, ArrayU8, ArrayU16, ArrayU32, ArrayU64,
+		ArrayUtf8, NonNullable,
 	},
 	ipc::{Compression, FileWriter, StreamWriter},
 };
@@ -47,6 +48,11 @@ pub enum AnyArray {
 
 	Utf8(Vec<String>),
 	Binary(Vec<Vec<u8>>),
+
+	FixedSizeBinary {
+		size: u32,
+		data: Vec<u8>,
+	},
 
 	FixedSizeList {
 		size: u32,
@@ -90,7 +96,7 @@ impl AnyArray {
 			variants.push(11)
 		};
 		if !primitive_only {
-			variants.extend(12..=14);
+			variants.extend(12..=15);
 		}
 
 		match *u.choose(&variants)? {
@@ -209,6 +215,12 @@ impl AnyArray {
 					child: child.into(),
 				})
 			}
+			15 => {
+				let size = u.int_in_range(1..=50)?;
+				let total = size as usize * len;
+				let data = u.bytes(total)?.to_vec();
+				Ok(Self::FixedSizeBinary { size, data })
+			}
 			_ => unreachable!(),
 		}
 	}
@@ -273,6 +285,16 @@ impl AnyArray {
 				let mut arr = ArrayBinary::<NonNullable>::new();
 				for b in v {
 					arr.push(b);
+				}
+				Box::new(arr)
+			}
+			Self::FixedSizeBinary { size, data } => {
+				let mut arr =
+					ArrayFixedBinary::<NonNullable>::new(
+						*size as i32,
+					);
+				for chunk in data.chunks(*size as usize) {
+					arr.push(chunk).unwrap();
 				}
 				Box::new(arr)
 			}
@@ -380,6 +402,10 @@ impl PartialEq for AnyArray {
 			(Self::Utf8(a), Self::Utf8(b)) => a == b,
 			(Self::Binary(a), Self::Binary(b)) => a == b,
 			(
+				Self::FixedSizeBinary { size: s1, data: d1 },
+				Self::FixedSizeBinary { size: s2, data: d2 },
+			) => s1 == s2 && d1 == d2,
+			(
 				Self::FixedSizeList {
 					size: s1,
 					child: c1,
@@ -482,6 +508,19 @@ fn arrow_to_any(col: &ArrayRef, original: &AnyArray) -> AnyArray {
 					.map(|i| arr.value(i).to_vec())
 					.collect(),
 			)
+		}
+		AnyArray::FixedSizeBinary { size, .. } => {
+			let arr = col
+				.as_any()
+				.downcast_ref::<FixedSizeBinaryArray>()
+				.unwrap();
+			assert_eq!(arr.value_length() as u32, *size);
+			let mut data =
+				Vec::with_capacity(arr.len() * *size as usize);
+			for i in 0..arr.len() {
+				data.extend_from_slice(arr.value(i));
+			}
+			AnyArray::FixedSizeBinary { size: *size, data }
 		}
 		AnyArray::FixedSizeList { size, child } => {
 			let list_arr = col

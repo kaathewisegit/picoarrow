@@ -15,11 +15,16 @@ pub enum Error {
 	/// Used by [`FixedSizeList::push`][p]
 	///
 	/// [p]: super::array::ArrayFixedSizeList::push
-	WrongNestedLength {
+	WrongListAppendLength {
 		/// The child array must have been longer by this much after the
 		/// call to `push`
 		expected: i32,
 		/// The actual increase in length of the child array
+		got: usize,
+	},
+
+	WrongBinaryAppendLength {
+		expected: i32,
 		got: usize,
 	},
 
@@ -34,10 +39,16 @@ impl fmt::Display for Error {
 			Error::WriteFailed(e) => {
 				writeln!(f, "underlying writer failed: {e}")
 			}
-			Error::WrongNestedLength { expected, got } => {
+			Error::WrongListAppendLength { expected, got } => {
 				writeln!(
 					f,
 					"Tried to write {got} elements to a fixed sized list with the size of {expected}"
+				)
+			}
+			Error::WrongBinaryAppendLength { expected, got } => {
+				writeln!(
+					f,
+					"Tried to write {got} bytes to a fixed sized binary array, expected {expected}"
 				)
 			}
 			Error::BatchDifferentLengths(boxed) => {
