@@ -1,5 +1,3 @@
-mod stream;
-
 use arbitrary::{Arbitrary, Result, Unstructured};
 use arbtest::arbtest;
 #[cfg(feature = "half")]
