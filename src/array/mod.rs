@@ -86,6 +86,16 @@ pub trait Array: seal::Seal {
 	/// does not shrink the allocations.
 	fn clear(&mut self);
 
+	/// Convert a concrete reference to a dynamic object
+	///
+	/// This is a convenience method to simplify writing arrays.
+	fn as_dyn(&self) -> &dyn Array
+	where
+		Self: Sized,
+	{
+		self as &dyn Array
+	}
+
 	#[doc(hidden)]
 	fn make_field(&self, name: &str) -> Field;
 

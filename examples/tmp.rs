@@ -64,11 +64,7 @@ fn main() {
 	})
 	.unwrap();
 
-	writer.write_batch([
-		&u as &dyn Array,
-		&b as &dyn Array,
-		&fs as &dyn Array,
-	])
-	.unwrap();
+	writer.write_batch([u.as_dyn(), b.as_dyn(), fs.as_dyn()])
+		.unwrap();
 	writer.finish().unwrap();
 }
