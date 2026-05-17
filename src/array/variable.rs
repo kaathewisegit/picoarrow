@@ -2,7 +2,9 @@ use bytemuck::cast_slice;
 
 use super::{Array, NonNullable, Nullable, Validity};
 use crate::{
+	Error,
 	bitmap::ValidityBuffer,
+	error::Result,
 	schema::{DataType, Field},
 	seal,
 };
@@ -13,7 +15,7 @@ use crate::{
 /// length of all items).
 pub struct ArrayBinary<V: Validity> {
 	validity: V::Container,
-	offsets: Vec<u32>,
+	offsets: Vec<i32>,
 	data: Vec<u8>,
 }
 
@@ -33,7 +35,7 @@ impl<V: Validity> Array for ArrayBinary<V> {
 
 	fn memory_size(&self) -> usize {
 		self.validity.memory_size()
-			+ self.offsets.len() * size_of::<u32>()
+			+ self.offsets.len() * size_of::<i32>()
 			+ self.data.len()
 	}
 
@@ -77,14 +79,17 @@ impl<V: Validity> ArrayBinary<V> {
 		}
 	}
 
-	pub fn push(&mut self, bytes: &[u8]) {
+	pub fn push(&mut self, bytes: &[u8]) -> Result<()> {
 		let start = *self.offsets.last().unwrap();
-		// TODO: check length
-		let end = start + bytes.len() as u32;
+		let len = i32::try_from(bytes.len())
+			.map_err(|_| Error::LengthOverflow)?;
+		let end =
+			start.checked_add(len).ok_or(Error::LengthOverflow)?;
 
 		self.data.extend_from_slice(bytes);
 
 		self.offsets.push(end);
+		Ok(())
 	}
 
 	pub fn is_null(&self, index: usize) -> bool {
@@ -148,7 +153,7 @@ impl<V: Validity> Default for ArrayBinary<V> {
 /// length of all items).
 pub struct ArrayUtf8<V: Validity> {
 	validity: V::Container,
-	offsets: Vec<u32>,
+	offsets: Vec<i32>,
 	data: String,
 }
 
@@ -168,7 +173,7 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 
 	fn memory_size(&self) -> usize {
 		self.validity.memory_size()
-			+ self.offsets.len() * size_of::<u32>()
+			+ self.offsets.len() * size_of::<i32>()
 			+ self.data.len()
 	}
 
@@ -212,14 +217,17 @@ impl<V: Validity> ArrayUtf8<V> {
 		}
 	}
 
-	pub fn push(&mut self, value: &str) {
+	pub fn push(&mut self, value: &str) -> Result<()> {
 		let start = *self.offsets.last().unwrap();
-		// TODO: check length
-		let end = start + value.len() as u32;
+		let len = i32::try_from(value.len())
+			.map_err(|_| Error::LengthOverflow)?;
+		let end =
+			start.checked_add(len).ok_or(Error::LengthOverflow)?;
 
 		self.data.push_str(value);
 
 		self.offsets.push(end);
+		Ok(())
 	}
 
 	pub fn is_null(&self, index: usize) -> bool {

@@ -28,6 +28,10 @@ pub enum Error {
 		got: usize,
 	},
 
+	/// Returned by variable-length arrays when the total data size would
+	/// overflow the offset type
+	LengthOverflow,
+
 	/// Returned by IPC serializers when a batch has two arrays of different
 	/// lengths.
 	BatchDifferentLengths(Box<(usize, usize)>),
@@ -49,6 +53,12 @@ impl fmt::Display for Error {
 				writeln!(
 					f,
 					"Tried to write {got} bytes to a fixed sized binary array, expected {expected}"
+				)
+			}
+			Error::LengthOverflow => {
+				writeln!(
+					f,
+					"Offset overflow: total data size exceeds 2^31 - 1"
 				)
 			}
 			Error::BatchDifferentLengths(boxed) => {

@@ -277,14 +277,14 @@ impl AnyArray {
 			Self::Utf8(v) => {
 				let mut arr = ArrayUtf8::<NonNullable>::new();
 				for s in v {
-					arr.push(s);
+					arr.push(s).unwrap();
 				}
 				Box::new(arr)
 			}
 			Self::Binary(v) => {
 				let mut arr = ArrayBinary::<NonNullable>::new();
 				for b in v {
-					arr.push(b);
+					arr.push(b).unwrap();
 				}
 				Box::new(arr)
 			}
