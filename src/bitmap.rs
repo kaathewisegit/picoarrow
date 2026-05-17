@@ -14,6 +14,8 @@ pub trait ValidityBuffer {
 
 	fn clear(&mut self);
 
+	fn shrink_to_fit(&mut self);
+
 	fn buffer(&self) -> &[u8];
 }
 
@@ -37,6 +39,8 @@ impl ValidityBuffer for () {
 	}
 
 	fn clear(&mut self) {}
+
+	fn shrink_to_fit(&mut self) {}
 
 	fn buffer(&self) -> &[u8] {
 		&[]
@@ -114,6 +118,10 @@ impl ValidityBuffer for Vec<u8> {
 
 	fn clear(&mut self) {
 		self.clear()
+	}
+
+	fn shrink_to_fit(&mut self) {
+		self.shrink_to_fit()
 	}
 
 	fn buffer(&self) -> &[u8] {

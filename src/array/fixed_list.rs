@@ -32,6 +32,11 @@ impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 		self.validity.memory_size() + self.child.memory_size()
 	}
 
+	fn shrink_to_fit(&mut self) {
+		self.validity.shrink_to_fit();
+		self.child.shrink_to_fit();
+	}
+
 	fn clear(&mut self) {
 		self.len = 0;
 		self.validity.clear();

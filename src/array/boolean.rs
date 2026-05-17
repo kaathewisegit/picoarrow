@@ -37,6 +37,11 @@ impl<V: Validity> Array for ArrayBoolean<V> {
 		self.validity.memory_size() + self.values.len()
 	}
 
+	fn shrink_to_fit(&mut self) {
+		self.validity.shrink_to_fit();
+		self.values.shrink_to_fit();
+	}
+
 	fn clear(&mut self) {
 		self.validity.clear();
 		self.values.clear();

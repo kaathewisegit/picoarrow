@@ -37,6 +37,12 @@ impl<V: Validity> Array for ArrayBinary<V> {
 			+ self.data.len()
 	}
 
+	fn shrink_to_fit(&mut self) {
+		self.validity.shrink_to_fit();
+		self.offsets.shrink_to_fit();
+		self.data.shrink_to_fit();
+	}
+
 	fn clear(&mut self) {
 		self.validity.clear();
 		self.offsets.resize(1, 0);
@@ -164,6 +170,12 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 		self.validity.memory_size()
 			+ self.offsets.len() * size_of::<u32>()
 			+ self.data.len()
+	}
+
+	fn shrink_to_fit(&mut self) {
+		self.validity.shrink_to_fit();
+		self.offsets.shrink_to_fit();
+		self.data.shrink_to_fit();
 	}
 
 	fn clear(&mut self) {

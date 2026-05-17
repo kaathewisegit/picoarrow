@@ -80,6 +80,11 @@ pub trait Array: seal::Seal {
 	/// growth.
 	fn memory_size(&self) -> usize;
 
+	/// Shrink the allocated buffers to fit the current length
+	///
+	/// Calls [`Vec::shrink_to_fit`] on all internal buffers.
+	fn shrink_to_fit(&mut self);
+
 	/// Delete all items in the array
 	///
 	/// This function is similar to [`Vec::clear`] in that it is cheap and

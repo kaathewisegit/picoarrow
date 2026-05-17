@@ -31,6 +31,11 @@ impl<V: Validity> Array for ArrayFixedBinary<V> {
 		self.validity.memory_size() + self.data.len()
 	}
 
+	fn shrink_to_fit(&mut self) {
+		self.validity.shrink_to_fit();
+		self.data.shrink_to_fit();
+	}
+
 	fn clear(&mut self) {
 		self.validity.clear();
 		self.data.clear();
