@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 //! A tiny package which implements a subset of [Apache Arrow][aa]
 //! functionality.
 //!

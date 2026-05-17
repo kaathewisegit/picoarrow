@@ -85,7 +85,7 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 	///
 	/// This method takes a closure which returns the nested list.  After
 	/// the closure yields `push` checks that the length has increased by
-	/// exactly `size` and returns [`Error::WrongNestedLength`].
+	/// exactly `size` and returns [`Error::WrongListAppendLength`].
 	///
 	/// On failure the internal state of this array gets corrupted, so it
 	/// can no longer be used.
