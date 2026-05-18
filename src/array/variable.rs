@@ -48,6 +48,7 @@ impl<V: Validity> Array for ArrayBinary<V> {
 	fn clear(&mut self) {
 		self.validity.clear();
 		self.offsets.resize(1, 0);
+		self.data.clear();
 	}
 
 	fn make_field(&self, name: &str) -> Field {
@@ -186,6 +187,7 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 	fn clear(&mut self) {
 		self.validity.clear();
 		self.offsets.resize(1, 0);
+		self.data.clear();
 	}
 
 	fn make_field(&self, name: &str) -> Field {
