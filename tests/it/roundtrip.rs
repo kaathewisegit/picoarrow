@@ -223,6 +223,70 @@ impl AnyArray {
 		}
 	}
 
+	fn new_data(
+		&self,
+		u: &mut Unstructured<'_>,
+		len: usize,
+	) -> Result<Self> {
+		macro_rules! vec_of {
+			($ty:ty) => {{
+				let mut v = Vec::with_capacity(len);
+				for _ in 0..len {
+					v.push(<$ty>::arbitrary(u)?);
+				}
+				v
+			}};
+		}
+
+		match self {
+			Self::Bool(_) => Ok(Self::Bool(vec_of!(bool))),
+			Self::U8(_) => Ok(Self::U8(vec_of!(u8))),
+			Self::U16(_) => Ok(Self::U16(vec_of!(u16))),
+			Self::U32(_) => Ok(Self::U32(vec_of!(u32))),
+			Self::U64(_) => Ok(Self::U64(vec_of!(u64))),
+			Self::I8(_) => Ok(Self::I8(vec_of!(i8))),
+			Self::I16(_) => Ok(Self::I16(vec_of!(i16))),
+			Self::I32(_) => Ok(Self::I32(vec_of!(i32))),
+			Self::I64(_) => Ok(Self::I64(vec_of!(i64))),
+			Self::F32(_) => Ok(Self::F32(vec_of!(f32))),
+			Self::F64(_) => Ok(Self::F64(vec_of!(f64))),
+			#[cfg(feature = "half")]
+			Self::F16(_) => Ok(Self::F16(vec_of!(f16))),
+			Self::Utf8(_) => {
+				let mut v = Vec::with_capacity(len);
+				for _ in 0..len {
+					let s_len = u.int_in_range(0..=32)?;
+					let bytes = u.bytes(s_len)?;
+					v.push(String::from_utf8_lossy(bytes)
+						.into_owned());
+				}
+				Ok(Self::Utf8(v))
+			}
+			Self::Binary(_) => {
+				let mut v = Vec::with_capacity(len);
+				for _ in 0..len {
+					let b_len = u.int_in_range(0..=32)?;
+					let bytes = u.bytes(b_len)?;
+					v.push(bytes.to_vec());
+				}
+				Ok(Self::Binary(v))
+			}
+			Self::FixedSizeBinary { size, .. } => {
+				let total = *size as usize * len;
+				let data = u.bytes(total)?.to_vec();
+				Ok(Self::FixedSizeBinary { size: *size, data })
+			}
+			Self::FixedSizeList { size, child, .. } => {
+				let child_len = *size as usize * len;
+				let new_child = child.new_data(u, child_len)?;
+				Ok(Self::FixedSizeList {
+					size: *size,
+					child: Box::new(new_child),
+				})
+			}
+		}
+	}
+
 	fn to_picoarray(&self) -> Box<dyn Array> {
 		macro_rules! push_primitive {
 			($values:expr, $arr_ty:ty) => {{
@@ -536,7 +600,16 @@ fn arrow_to_any(col: &ArrayRef, original: &AnyArray) -> AnyArray {
 	}
 }
 
-fn serialize_batch_stream(batch: &Batch, compression: Compression) -> Vec<u8> {
+enum IpcFormat {
+	Stream,
+	File,
+}
+
+fn serialize_batch(
+	batch: &Batch,
+	compression: Compression,
+	format: IpcFormat,
+) -> Vec<u8> {
 	let arrays: Vec<(String, Box<dyn Array>)> = batch
 		.arrays
 		.iter()
@@ -549,19 +622,37 @@ fn serialize_batch_stream(batch: &Batch, compression: Compression) -> Vec<u8> {
 	);
 
 	let buffer = Vec::new();
-	let mut writer =
-		StreamWriter::new(buffer, schema, compression).unwrap();
 
 	let refs: Vec<&dyn Array> =
 		arrays.iter().map(|(_, a)| a.as_ref()).collect();
 
-	writer.write_batch(refs).unwrap();
-	writer.finish().unwrap()
+	match format {
+		IpcFormat::Stream => {
+			let mut writer =
+				StreamWriter::new(buffer, schema, compression)
+					.unwrap();
+			writer.write_batch(refs).unwrap();
+			writer.finish().unwrap()
+		}
+		IpcFormat::File => {
+			let mut writer =
+				FileWriter::new(buffer, schema, compression)
+					.unwrap();
+			writer.write_batch(refs).unwrap();
+			writer.finish().unwrap();
+			writer.into_inner()
+		}
+	}
 }
 
-// TODO: deduplicate
-fn serialize_batch_file(batch: &Batch, compression: Compression) -> Vec<u8> {
-	let arrays: Vec<(String, Box<dyn Array>)> = batch
+fn serialize_batches(
+	batches: &[Batch],
+	compression: Compression,
+	format: IpcFormat,
+) -> Vec<u8> {
+	assert!(!batches.is_empty());
+	let first = &batches[0];
+	let arrays: Vec<(String, Box<dyn Array>)> = first
 		.arrays
 		.iter()
 		.map(|(name, arr)| (name.clone(), arr.to_picoarray()))
@@ -573,25 +664,58 @@ fn serialize_batch_file(batch: &Batch, compression: Compression) -> Vec<u8> {
 	);
 
 	let buffer = Vec::new();
-	let mut writer = FileWriter::new(buffer, schema, compression).unwrap();
 
-	let refs: Vec<&dyn Array> =
-		arrays.iter().map(|(_, a)| a.as_ref()).collect();
-
-	writer.write_batch(refs).unwrap();
-	writer.finish().unwrap();
-	writer.into_inner()
+	match format {
+		IpcFormat::Stream => {
+			let mut writer =
+				StreamWriter::new(buffer, schema, compression)
+					.unwrap();
+			for batch in batches {
+				let converted: Vec<(String, Box<dyn Array>)> =
+					batch.arrays
+						.iter()
+						.map(|(name, arr)| {
+							(name.clone(), arr.to_picoarray())
+						})
+						.collect();
+				let refs: Vec<&dyn Array> = converted
+					.iter()
+					.map(|(_, a)| a.as_ref())
+					.collect();
+				writer.write_batch(refs).unwrap();
+			}
+			writer.finish().unwrap()
+		}
+		IpcFormat::File => {
+			let mut writer =
+				FileWriter::new(buffer, schema, compression)
+					.unwrap();
+			for batch in batches {
+				let converted: Vec<(String, Box<dyn Array>)> =
+					batch.arrays
+						.iter()
+						.map(|(name, arr)| {
+							(name.clone(), arr.to_picoarray())
+						})
+						.collect();
+				let refs: Vec<&dyn Array> = converted
+					.iter()
+					.map(|(_, a)| a.as_ref())
+					.collect();
+				writer.write_batch(refs).unwrap();
+			}
+			writer.finish().unwrap();
+			writer.into_inner()
+		}
+	}
 }
 
-fn deserialize_batch_stream(data: &[u8], original: &Batch) -> Batch {
-	let record_batch = ArrowStreamReader::try_new(&mut &data[..], None)
-		.unwrap()
-		.collect::<Result<Vec<_>, _>>()
-		.unwrap()
-		.into_iter()
-		.next()
-		.unwrap();
+use arrow_array::RecordBatch as ArrowRecordBatch;
 
+fn deserialize_record_batch(
+	record_batch: &ArrowRecordBatch,
+	original: &Batch,
+) -> Batch {
 	let mut arrays = Vec::new();
 	for (i, (name, original_arr)) in original.arrays.iter().enumerate() {
 		let col = record_batch.column(i);
@@ -601,24 +725,42 @@ fn deserialize_batch_stream(data: &[u8], original: &Batch) -> Batch {
 	Batch { arrays }
 }
 
-// TODO: deduplicate
-fn deserialize_batch_file(data: &[u8], original: &Batch) -> Batch {
-	let cursor = Cursor::new(data);
-	let record_batch = ArrowFileReader::try_new(cursor, None)
-		.unwrap()
-		.collect::<Result<Vec<_>, _>>()
-		.unwrap()
+fn deserialize_batches(
+	data: &[u8],
+	originals: &[Batch],
+	format: IpcFormat,
+) -> Vec<Batch> {
+	let record_batches: Vec<ArrowRecordBatch> = match format {
+		IpcFormat::Stream => {
+			ArrowStreamReader::try_new(&mut &data[..], None)
+				.unwrap()
+				.collect::<Result<Vec<_>, _>>()
+				.unwrap()
+		}
+		IpcFormat::File => {
+			ArrowFileReader::try_new(Cursor::new(data), None)
+				.unwrap()
+				.collect::<Result<Vec<_>, _>>()
+				.unwrap()
+		}
+	};
+
+	record_batches
+		.into_iter()
+		.zip(originals)
+		.map(|(rb, original)| deserialize_record_batch(&rb, original))
+		.collect()
+}
+
+fn deserialize_batch(
+	data: &[u8],
+	original: &Batch,
+	format: IpcFormat,
+) -> Batch {
+	deserialize_batches(data, std::slice::from_ref(original), format)
 		.into_iter()
 		.next()
-		.unwrap();
-
-	let mut arrays = Vec::new();
-	for (i, (name, original_arr)) in original.arrays.iter().enumerate() {
-		let col = record_batch.column(i);
-		let arr = arrow_to_any(col, original_arr);
-		arrays.push((name.clone(), arr));
-	}
-	Batch { arrays }
+		.unwrap()
 }
 
 fn check_roundtrip(f: impl Fn(&Batch) -> Batch) {
@@ -638,14 +780,50 @@ fn check_roundtrip(f: impl Fn(&Batch) -> Batch) {
 		Ok(())
 	})
 	.size_min(2u32.pow(18))
-	.budget_ms(2_000);
+	.budget_ms(3_000);
+}
+
+fn check_roundtrip_multi(f: impl Fn(&[Batch]) -> Vec<Batch>) {
+	arbtest(|u| {
+		let num_batches = u.int_in_range(1..=5)?;
+
+		let first = Batch::arbitrary(u)?;
+		if first.arrays.is_empty() {
+			return Ok(());
+		}
+
+		let mut batches = vec![first];
+		for _ in 1..num_batches {
+			let len = u.int_in_range(0..=50)?;
+			let mut arrays = Vec::new();
+			for (name, template) in &batches[0].arrays {
+				let arr = template.new_data(u, len)?;
+				arrays.push((name.clone(), arr));
+			}
+			batches.push(Batch { arrays });
+		}
+
+		let decoded = f(&batches);
+
+		assert_eq!(
+			batches, decoded,
+			"roundtrip failed\nbatches:\n{batches:?}\ndecoded\n{decoded:?}"
+		);
+		Ok(())
+	})
+	.size_min(2u32.pow(20))
+	.budget_ms(3_000);
 }
 
 #[test]
 fn roundtrip_stream() {
 	check_roundtrip(|batch| {
-		let encoded = serialize_batch_stream(batch, Compression::None);
-		deserialize_batch_stream(&encoded, batch)
+		let encoded = serialize_batch(
+			batch,
+			Compression::None,
+			IpcFormat::Stream,
+		);
+		deserialize_batch(&encoded, batch, IpcFormat::Stream)
 	});
 }
 
@@ -653,8 +831,12 @@ fn roundtrip_stream() {
 #[cfg(feature = "lz4")]
 fn roundtrip_stream_lz4() {
 	check_roundtrip(|batch| {
-		let encoded = serialize_batch_stream(batch, Compression::LZ4);
-		deserialize_batch_stream(&encoded, batch)
+		let encoded = serialize_batch(
+			batch,
+			Compression::LZ4,
+			IpcFormat::Stream,
+		);
+		deserialize_batch(&encoded, batch, IpcFormat::Stream)
 	});
 }
 
@@ -662,17 +844,24 @@ fn roundtrip_stream_lz4() {
 #[cfg(feature = "zstd")]
 fn roundtrip_stream_zstd() {
 	check_roundtrip(|batch| {
-		let encoded =
-			serialize_batch_stream(batch, Compression::Zstd(0));
-		deserialize_batch_stream(&encoded, batch)
+		let encoded = serialize_batch(
+			batch,
+			Compression::Zstd(0),
+			IpcFormat::Stream,
+		);
+		deserialize_batch(&encoded, batch, IpcFormat::Stream)
 	});
 }
 
 #[test]
 fn roundtrip_file() {
 	check_roundtrip(|batch| {
-		let encoded = serialize_batch_file(batch, Compression::None);
-		deserialize_batch_file(&encoded, batch)
+		let encoded = serialize_batch(
+			batch,
+			Compression::None,
+			IpcFormat::File,
+		);
+		deserialize_batch(&encoded, batch, IpcFormat::File)
 	});
 }
 
@@ -680,8 +869,12 @@ fn roundtrip_file() {
 #[cfg(feature = "lz4")]
 fn roundtrip_file_lz4() {
 	check_roundtrip(|batch| {
-		let encoded = serialize_batch_file(batch, Compression::LZ4);
-		deserialize_batch_file(&encoded, batch)
+		let encoded = serialize_batch(
+			batch,
+			Compression::LZ4,
+			IpcFormat::File,
+		);
+		deserialize_batch(&encoded, batch, IpcFormat::File)
 	});
 }
 
@@ -689,7 +882,87 @@ fn roundtrip_file_lz4() {
 #[cfg(feature = "zstd")]
 fn roundtrip_file_zstd() {
 	check_roundtrip(|batch| {
-		let encoded = serialize_batch_file(batch, Compression::Zstd(0));
-		deserialize_batch_file(&encoded, batch)
+		let encoded = serialize_batch(
+			batch,
+			Compression::Zstd(0),
+			IpcFormat::File,
+		);
+		deserialize_batch(&encoded, batch, IpcFormat::File)
+	});
+}
+
+#[test]
+fn roundtrip_multi_stream() {
+	check_roundtrip_multi(|batches| {
+		let encoded = serialize_batches(
+			batches,
+			Compression::None,
+			IpcFormat::Stream,
+		);
+		deserialize_batches(&encoded, batches, IpcFormat::Stream)
+	});
+}
+
+#[test]
+#[cfg(feature = "lz4")]
+fn roundtrip_multi_stream_lz4() {
+	check_roundtrip_multi(|batches| {
+		let encoded = serialize_batches(
+			batches,
+			Compression::LZ4,
+			IpcFormat::Stream,
+		);
+		deserialize_batches(&encoded, batches, IpcFormat::Stream)
+	});
+}
+
+#[test]
+#[cfg(feature = "zstd")]
+fn roundtrip_multi_stream_zstd() {
+	check_roundtrip_multi(|batches| {
+		let encoded = serialize_batches(
+			batches,
+			Compression::Zstd(0),
+			IpcFormat::Stream,
+		);
+		deserialize_batches(&encoded, batches, IpcFormat::Stream)
+	});
+}
+
+#[test]
+fn roundtrip_multi_file() {
+	check_roundtrip_multi(|batches| {
+		let encoded = serialize_batches(
+			batches,
+			Compression::None,
+			IpcFormat::File,
+		);
+		deserialize_batches(&encoded, batches, IpcFormat::File)
+	});
+}
+
+#[test]
+#[cfg(feature = "lz4")]
+fn roundtrip_multi_file_lz4() {
+	check_roundtrip_multi(|batches| {
+		let encoded = serialize_batches(
+			batches,
+			Compression::LZ4,
+			IpcFormat::File,
+		);
+		deserialize_batches(&encoded, batches, IpcFormat::File)
+	});
+}
+
+#[test]
+#[cfg(feature = "zstd")]
+fn roundtrip_multi_file_zstd() {
+	check_roundtrip_multi(|batches| {
+		let encoded = serialize_batches(
+			batches,
+			Compression::Zstd(0),
+			IpcFormat::File,
+		);
+		deserialize_batches(&encoded, batches, IpcFormat::File)
 	});
 }
