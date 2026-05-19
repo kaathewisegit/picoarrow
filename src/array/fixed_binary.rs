@@ -63,6 +63,10 @@ impl<V: Validity> Array for ArrayFixedBinary<V> {
 }
 
 impl<V: Validity> ArrayFixedBinary<V> {
+	fn byte_width(&self) -> usize {
+		self.byte_width as usize
+	}
+
 	/// Returns an array where each element is `byte_width` bytes
 	pub fn new(byte_width: i32) -> Self {
 		assert!(byte_width > 0);
@@ -78,7 +82,7 @@ impl<V: Validity> ArrayFixedBinary<V> {
 	/// Returns [`Error::WrongBinaryAppendLength`] if the length of `bytes`
 	/// does not match the element size of the array.
 	pub fn push(&mut self, bytes: &[u8]) -> Result<()> {
-		if bytes.len() != self.byte_width as usize {
+		if bytes.len() != self.byte_width() {
 			return Err(Error::WrongBinaryAppendLength {
 				expected: self.byte_width,
 				got: bytes.len(),
@@ -94,13 +98,13 @@ impl<V: Validity> ArrayFixedBinary<V> {
 	}
 
 	fn get_unchecked(&self, index: usize) -> &[u8] {
-		let start = index * self.byte_width as usize;
-		&self.data[start..start + self.byte_width as usize]
+		let start = index * self.byte_width();
+		&self.data[start..start + self.byte_width()]
 	}
 
 	fn get_mut_unchecked(&mut self, index: usize) -> &mut [u8] {
-		let start = index * self.byte_width as usize;
-		let end = start + self.byte_width as usize;
+		let start = index * self.byte_width();
+		let end = start + self.byte_width();
 		&mut self.data[start..end]
 	}
 }
@@ -120,6 +124,12 @@ impl ArrayFixedBinary<Nullable> {
 		} else {
 			Some(self.get_mut_unchecked(index))
 		}
+	}
+
+	pub fn push_null(&mut self) {
+		let len = self.len();
+		ValidityBuffer::push(&mut self.validity, len, false);
+		self.data.resize(self.data.len() + self.byte_width(), 0);
 	}
 }
 
