@@ -43,6 +43,7 @@ impl<V: Validity> Array for ArrayBoolean<V> {
 	}
 
 	fn clear(&mut self) {
+		self.len = 0;
 		self.validity.clear();
 		self.values.clear();
 	}
