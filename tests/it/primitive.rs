@@ -162,8 +162,7 @@ macro_rules! test_simulate_nullable {
 				}
 				Ok(())
 			})
-			.size_min(2u32.pow(15))
-			.size_max(2u32.pow(20));
+			.size_min(2u32.pow(16));
 		}
 	};
 }

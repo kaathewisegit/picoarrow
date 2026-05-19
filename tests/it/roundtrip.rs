@@ -779,8 +779,7 @@ fn check_roundtrip(f: impl Fn(&Batch) -> Batch) {
 		);
 		Ok(())
 	})
-	.size_min(2u32.pow(18))
-	.budget_ms(3_000);
+	.size_min(2u32.pow(18));
 }
 
 fn check_roundtrip_multi(f: impl Fn(&[Batch]) -> Vec<Batch>) {
@@ -811,8 +810,7 @@ fn check_roundtrip_multi(f: impl Fn(&[Batch]) -> Vec<Batch>) {
 		);
 		Ok(())
 	})
-	.size_min(2u32.pow(20))
-	.budget_ms(3_000);
+	.size_min(2u32.pow(20));
 }
 
 #[test]
