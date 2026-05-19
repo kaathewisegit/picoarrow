@@ -2,7 +2,7 @@ use bytemuck::{NoUninit, cast_slice};
 
 use std::ops::{Deref, DerefMut};
 
-use super::{Array, NonNullable, Validity};
+use super::{Array, NonNullable, Nullable, Validity};
 use crate::{
 	bitmap::ValidityBuffer,
 	fb::Precision,
@@ -10,7 +10,7 @@ use crate::{
 	seal,
 };
 
-pub trait Primitive: NoUninit + seal::Seal {
+pub trait Primitive: NoUninit + Default + seal::Seal {
 	fn data_type() -> DataType;
 }
 
@@ -129,6 +129,14 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 	pub fn is_null(&self, index: usize) -> bool {
 		self.validity.is_null(index)
 	}
+}
+
+impl<T: Primitive> ArrayPrimitive<T, Nullable> {
+	pub fn push_null(&mut self) {
+		let len = self.len();
+		ValidityBuffer::push(&mut self.validity, len, false);
+		self.values.push(T::default());
+	}
 
 	pub fn get(&self, index: usize) -> Option<&T> {
 		if self.is_null(index) {
@@ -144,6 +152,16 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 		} else {
 			Some(&mut self.values[index])
 		}
+	}
+}
+
+impl<T: Primitive> ArrayPrimitive<T, NonNullable> {
+	pub fn get(&self, index: usize) -> &T {
+		&self.values[index]
+	}
+
+	pub fn get_mut(&mut self, index: usize) -> &mut T {
+		&mut self.values[index]
 	}
 }
 
