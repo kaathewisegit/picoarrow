@@ -1,4 +1,4 @@
-use super::{Array, Validity};
+use super::{Array, Nullable, Validity};
 use crate::{
 	Error, Result,
 	bitmap::ValidityBuffer,
@@ -112,5 +112,17 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 
 	pub fn child(&self) -> &A {
 		&self.child
+	}
+
+	pub fn is_null(&self, index: usize) -> bool {
+		self.validity.is_null(index)
+	}
+}
+
+impl<A: Array> ArrayFixedSizeList<A, Nullable> {
+	pub fn push_null(&mut self) {
+		let len = self.len;
+		ValidityBuffer::push(&mut self.validity, len, false);
+		self.len += 1;
 	}
 }
