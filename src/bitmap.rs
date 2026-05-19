@@ -1,7 +1,9 @@
 pub trait ValidityBuffer {
 	fn new() -> Self;
 
-	fn push(&mut self, index: usize, valid: bool);
+	fn resize_bits(&mut self, len: usize);
+
+	fn set_bit(&mut self, index: usize, value: bool);
 
 	fn push_many(&mut self, index: usize, valid: bool, num: usize);
 
@@ -22,7 +24,9 @@ pub trait ValidityBuffer {
 impl ValidityBuffer for () {
 	fn new() -> Self {}
 
-	fn push(&mut self, _index: usize, _valid: bool) {}
+	fn resize_bits(&mut self, _len: usize) {}
+
+	fn set_bit(&mut self, _index: usize, _value: bool) {}
 
 	fn push_many(&mut self, _index: usize, _valid: bool, _num: usize) {}
 
@@ -52,15 +56,15 @@ impl ValidityBuffer for Vec<u8> {
 		Vec::new()
 	}
 
-	fn push(&mut self, index: usize, valid: bool) {
+	fn resize_bits(&mut self, len: usize) {
+		self.resize(len.div_ceil(8), 0);
+	}
+
+	fn set_bit(&mut self, index: usize, value: bool) {
 		let byte_index = index / 8;
 		let bit_offset = index % 8;
 
-		if byte_index >= self.len() {
-			self.push(0);
-		}
-
-		if valid {
+		if value {
 			self[byte_index] |= 1 << bit_offset;
 		} else {
 			self[byte_index] &= !(1 << bit_offset);

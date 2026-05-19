@@ -88,7 +88,8 @@ impl<V: Validity> ArrayFixedBinary<V> {
 				got: bytes.len(),
 			});
 		}
-		self.validity.push(self.len(), true);
+		self.validity.resize_bits(self.len() + 1);
+		self.validity.set_bit(self.len(), true);
 		self.data.extend_from_slice(bytes);
 		Ok(())
 	}
@@ -128,7 +129,8 @@ impl ArrayFixedBinary<Nullable> {
 
 	pub fn push_null(&mut self) {
 		let len = self.len();
-		ValidityBuffer::push(&mut self.validity, len, false);
+		self.validity.resize_bits(len + 1);
+		self.validity.set_bit(len, false);
 		self.data.resize(self.data.len() + self.byte_width(), 0);
 	}
 }

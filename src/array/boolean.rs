@@ -78,8 +78,10 @@ impl<V: Validity> ArrayBoolean<V> {
 	}
 
 	pub fn push(&mut self, value: bool) {
-		self.validity.push(self.len(), true);
-		ValidityBuffer::push(&mut self.values, self.len, value);
+		self.validity.resize_bits(self.len() + 1);
+		self.validity.set_bit(self.len(), true);
+		self.values.resize_bits(self.len + 1);
+		self.values.set_bit(self.len, value);
 		self.len += 1;
 	}
 
@@ -98,8 +100,10 @@ impl ArrayBoolean<Nullable> {
 	}
 
 	pub fn push_null(&mut self) {
-		ValidityBuffer::push(&mut self.validity, self.len, false);
-		ValidityBuffer::push(&mut self.values, self.len, false);
+		self.validity.resize_bits(self.len + 1);
+		self.validity.set_bit(self.len, false);
+		self.values.resize_bits(self.len + 1);
+		self.values.set_bit(self.len, false);
 		self.len += 1;
 	}
 }

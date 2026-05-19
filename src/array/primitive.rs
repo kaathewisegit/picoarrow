@@ -122,7 +122,8 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 	}
 
 	pub fn push(&mut self, value: T) {
-		self.validity.push(self.len(), true);
+		self.validity.resize_bits(self.len() + 1);
+		self.validity.set_bit(self.len(), true);
 		self.values.push(value);
 	}
 
@@ -134,7 +135,8 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 impl<T: Primitive> ArrayPrimitive<T, Nullable> {
 	pub fn push_null(&mut self) {
 		let len = self.len();
-		ValidityBuffer::push(&mut self.validity, len, false);
+		self.validity.resize_bits(len + 1);
+		self.validity.set_bit(len, false);
 		self.values.push(T::default());
 	}
 

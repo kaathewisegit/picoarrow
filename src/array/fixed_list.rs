@@ -104,7 +104,8 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 			});
 		}
 
-		self.validity.push(self.len, true);
+		self.validity.resize_bits(self.len + 1);
+		self.validity.set_bit(self.len, true);
 		self.len += 1;
 
 		Ok(())
@@ -122,7 +123,8 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 impl<A: Array> ArrayFixedSizeList<A, Nullable> {
 	pub fn push_null(&mut self) {
 		let len = self.len;
-		ValidityBuffer::push(&mut self.validity, len, false);
+		self.validity.resize_bits(len + 1);
+		self.validity.set_bit(len, false);
 		self.len += 1;
 	}
 }
