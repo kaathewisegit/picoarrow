@@ -7,19 +7,20 @@ use crate::fb::{
 	Endianness, Feature, Field as FbField, FieldArgs, FixedSizeBinary,
 	FixedSizeBinaryArgs, FixedSizeList, FixedSizeListArgs, FloatingPoint,
 	FloatingPointArgs, Int, IntArgs, Interval, IntervalArgs, IntervalUnit,
-	LargeBinary, LargeBinaryArgs, LargeList, LargeListArgs, LargeListView,
-	LargeListViewArgs, LargeUtf8, LargeUtf8Args, List, ListArgs, ListView,
-	ListViewArgs, Map, MapArgs, Null, NullArgs, Precision, RunEndEncoded,
-	RunEndEncodedArgs, Schema as FbSchema, SchemaArgs, Time, TimeArgs,
-	TimeUnit, Timestamp, TimestampArgs, Type, Utf8, Utf8Args, Utf8View,
-	Utf8ViewArgs,
+	KeyValue, KeyValueArgs, LargeBinary, LargeBinaryArgs, LargeList,
+	LargeListArgs, LargeListView, LargeListViewArgs, LargeUtf8,
+	LargeUtf8Args, List, ListArgs, ListView, ListViewArgs, Map, MapArgs,
+	Null, NullArgs, Precision, RunEndEncoded, RunEndEncodedArgs,
+	Schema as FbSchema, SchemaArgs, Time, TimeArgs, TimeUnit, Timestamp,
+	TimestampArgs, Type, Utf8, Utf8Args, Utf8View, Utf8ViewArgs,
 };
 
 /// Describes the types of a collection of arrays which can be serialized via
 /// Arrow IPC
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Schema {
-	fields: Vec<Field>,
+	pub fields: Vec<Field>,
+	pub custom_metadata: Vec<(String, String)>,
 }
 
 impl Schema {
@@ -29,6 +30,7 @@ impl Schema {
 	{
 		Self {
 			fields: fields.into_iter().collect(),
+			custom_metadata: Vec::new(),
 		}
 	}
 
@@ -41,7 +43,10 @@ impl Schema {
 			.map(|(name, array)| array.make_field(name))
 			.collect();
 
-		Self { fields }
+		Self {
+			fields,
+			custom_metadata: Vec::new(),
+		}
 	}
 
 	pub(crate) fn serialize<'fbb>(
@@ -58,11 +63,33 @@ impl Schema {
 		let features =
 			builder.create_vector(&[Feature::COMPRESSED_BODY]);
 
+		let custom_metadata = if self.custom_metadata.is_empty() {
+			None
+		} else {
+			let kv_offsets: Vec<_> = self
+				.custom_metadata
+				.iter()
+				.map(|(key, value)| {
+					let key = builder.create_string(key);
+					let value =
+						builder.create_string(value);
+					KeyValue::create(
+						builder,
+						&KeyValueArgs {
+							key: Some(key),
+							value: Some(value),
+						},
+					)
+				})
+				.collect();
+			Some(builder.create_vector(&kv_offsets))
+		};
+
 		FbSchema::create(
 			builder,
 			&SchemaArgs {
 				endianness: Endianness::Little,
-				custom_metadata: None,
+				custom_metadata,
 				fields: Some(fields),
 				features: Some(features),
 			},
