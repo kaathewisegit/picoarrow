@@ -20,7 +20,7 @@ use crate::{
 		Buffer, FieldNode, Message, MessageArgs, MessageHeader,
 		MetadataVersion, RecordBatch, RecordBatchArgs,
 	},
-	schema::Schema,
+	schema::{Field, Schema},
 };
 
 /// An IPC writer for [the streaming format][s]
@@ -85,7 +85,6 @@ impl<W: Write> StreamWriter<W> {
 	///
 	/// They must be passed in exactly the same order they were in the
 	/// schema.
-	// TODO: schema verification
 	pub fn write_batch<'a, I>(&mut self, arrays: I) -> Result<()>
 	where
 		I: IntoIterator<Item = &'a dyn Array>,
@@ -97,6 +96,7 @@ impl<W: Write> StreamWriter<W> {
 			take(&mut self.buf_metadata),
 			take(&mut self.buf_data),
 			arrays,
+			&self.schema.fields,
 			self.compression,
 		)?;
 
@@ -190,6 +190,7 @@ fn write_batch<'a, 'fbb>(
 	buf_metadata: Vec<u8>,
 	mut buf_data: Vec<u8>,
 	arrays: impl IntoIterator<Item = &'a dyn Array>,
+	fields: &[Field],
 	compression: Compression,
 ) -> Result<(FlatBufferBuilder<'fbb>, Vec<u8>)> {
 	let mut builder = FlatBufferBuilder::from_vec(buf_metadata);
@@ -198,7 +199,23 @@ fn write_batch<'a, 'fbb>(
 	let mut nodes = Vec::<FieldNode>::new();
 
 	let mut num_rows: Option<usize> = None;
-	for array in arrays.into_iter() {
+	let mut count = 0u32;
+	let mut arrays = arrays.into_iter().peekable();
+	for field in fields {
+		let Some(array) = arrays.next() else {
+			return Err(Error::BatchDifferentNumberOfArrays {
+				expected: fields.len() as u32,
+				got: count,
+			});
+		};
+
+		if *field != array.make_field(&field.name) {
+			return Err(Error::BatchSchemaMismatch(
+				(field.clone(), array.make_field(&field.name))
+					.into(),
+			));
+		}
+
 		if let Some(num_rows) = num_rows {
 			if num_rows != array.len() {
 				return Err(Error::BatchDifferentLengths(
@@ -222,7 +239,16 @@ fn write_batch<'a, 'fbb>(
 			let length = length as i64;
 			let null_count = null_count as i64;
 			nodes.push(FieldNode::new(length, null_count));
-		})
+		});
+
+		count += 1;
+	}
+
+	if arrays.peek().is_some() {
+		return Err(Error::BatchDifferentNumberOfArrays {
+			expected: fields.len() as u32,
+			got: count + arrays.count() as u32,
+		});
 	}
 
 	let compression = match compression {

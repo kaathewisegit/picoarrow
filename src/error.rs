@@ -1,5 +1,7 @@
 use std::{error, fmt, io::Error as IoError};
 
+use crate::schema::Field;
+
 /// The Result type of `picoarrow`'s functions and methods
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -35,6 +37,17 @@ pub enum Error {
 	/// Returned by IPC serializers when a batch has two arrays of different
 	/// lengths.
 	BatchDifferentLengths(Box<(usize, usize)>),
+
+	/// Tried to serialize a different number of arrays than there were in
+	/// the schema
+	BatchDifferentNumberOfArrays {
+		expected: u32,
+		got: u32,
+	},
+
+	/// Returned by IPC serializers when arrays in a batch don't match the
+	/// schema.
+	BatchSchemaMismatch(Box<(Field, Field)>),
 }
 
 impl fmt::Display for Error {
@@ -59,6 +72,22 @@ impl fmt::Display for Error {
 				writeln!(
 					f,
 					"Offset overflow: total data size exceeds 2^31 - 1"
+				)
+			}
+			Error::BatchDifferentNumberOfArrays {
+				expected,
+				got,
+			} => {
+				writeln!(
+					f,
+					"Expected {expected} arrays in a batch, got {got}"
+				)
+			}
+			Error::BatchSchemaMismatch(boxed) => {
+				let (expected, got) = boxed.as_ref();
+				writeln!(
+					f,
+					"Expected field {expected:?}, got {got:?}"
 				)
 			}
 			Error::BatchDifferentLengths(boxed) => {

@@ -17,7 +17,7 @@ use crate::fb::{
 
 /// Describes the types of a collection of arrays which can be serialized via
 /// Arrow IPC
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Schema {
 	pub fields: Vec<Field>,
 	pub custom_metadata: Vec<(String, String)>,
@@ -132,12 +132,18 @@ impl Schema {
 ///
 /// Fields can have children, which can also be named.  But `picoarrow` only
 /// supports lists, so nested arrays will always have a name of `item`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Field {
 	pub(crate) name: String,
 	pub(crate) nullable: bool,
 	pub(crate) type_: DataType,
 	pub(crate) children: Vec<Field>,
+}
+
+impl PartialEq for Field {
+	fn eq(&self, other: &Self) -> bool {
+		self.type_ == other.type_ && self.children == other.children
+	}
 }
 
 impl Field {
