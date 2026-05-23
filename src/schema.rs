@@ -49,6 +49,37 @@ impl Schema {
 		}
 	}
 
+	#[allow(dead_code)]
+	pub(crate) fn deserialize(fb: &FbSchema<'_>) -> Self {
+		let fields = fb
+			.fields()
+			.map(|f| f.iter().map(|f| Field::from_fb(&f)).collect())
+			.unwrap_or_default();
+
+		let custom_metadata = fb
+			.custom_metadata()
+			.map(|kv| {
+				kv.iter()
+					.filter_map(|kv| {
+						let key = kv.key()?;
+						let value = kv
+							.value()
+							.unwrap_or_default();
+						Some((
+							key.to_owned(),
+							value.to_owned(),
+						))
+					})
+					.collect()
+			})
+			.unwrap_or_default();
+
+		Self {
+			fields,
+			custom_metadata,
+		}
+	}
+
 	pub(crate) fn serialize<'fbb>(
 		&self,
 		builder: &mut FlatBufferBuilder<'fbb>,
@@ -110,6 +141,22 @@ pub struct Field {
 }
 
 impl Field {
+	#[allow(dead_code)]
+	pub(crate) fn from_fb(field: &FbField<'_>) -> Self {
+		Self {
+			name: field.name().unwrap_or_default().to_owned(),
+			nullable: field.nullable(),
+			type_: DataType::from_fb(field).expect("unimlemented"),
+			children: field
+				.children()
+				.map(|c| {
+					c.iter().map(|c| Field::from_fb(&c))
+						.collect()
+				})
+				.unwrap_or_default(),
+		}
+	}
+
 	pub(crate) fn create_field<'fbb>(
 		&self,
 		builder: &mut FlatBufferBuilder<'fbb>,
@@ -223,6 +270,89 @@ impl DataType {
 			DataType::Utf8View => Type::Utf8View,
 			DataType::ListView => Type::ListView,
 			DataType::LargeListView => Type::LargeListView,
+		}
+	}
+
+	#[allow(dead_code)]
+	pub(crate) fn from_fb(field: &FbField<'_>) -> Option<Self> {
+		match field.type_type() {
+			Type::NONE => None,
+			Type::Null => Some(DataType::Null),
+			Type::Int => {
+				field.type__as_int().map(|int| DataType::Int {
+					bit_width: int.bitWidth(),
+					is_signed: int.is_signed(),
+				})
+			}
+			Type::FloatingPoint => field
+				.type__as_floating_point()
+				.map(|fp| DataType::FloatingPoint {
+					precision: fp.precision(),
+				}),
+			Type::Binary => Some(DataType::Binary),
+			Type::Utf8 => Some(DataType::Utf8),
+			Type::Bool => Some(DataType::Bool),
+			Type::Decimal => field.type__as_decimal().map(|d| {
+				DataType::Decimal {
+					precision: d.precision(),
+					scale: d.scale(),
+					bit_width: d.bitWidth(),
+				}
+			}),
+			Type::Date => field
+				.type__as_date()
+				.map(|d| DataType::Date { unit: d.unit() }),
+			Type::Time => {
+				field.type__as_time().map(|t| DataType::Time {
+					unit: t.unit(),
+					bit_width: t.bitWidth(),
+				})
+			}
+			Type::Timestamp => {
+				field.type__as_timestamp().map(|ts| {
+					DataType::Timestamp {
+						unit: ts.unit(),
+						timezone: ts.timezone().map(
+							|tz| {
+								tz.to_owned()
+									.into_boxed_str(
+									)
+							},
+						),
+					}
+				})
+			}
+			Type::Interval => field
+				.type__as_interval()
+				.map(|i| DataType::Interval { unit: i.unit() }),
+			Type::List => Some(DataType::List),
+			Type::FixedSizeBinary => field
+				.type__as_fixed_size_binary()
+				.map(|fsb| DataType::FixedSizeBinary {
+					byte_width: fsb.byteWidth(),
+				}),
+			Type::FixedSizeList => field
+				.type__as_fixed_size_list()
+				.map(|fsl| DataType::FixedSizeList {
+					list_size: fsl.listSize(),
+				}),
+			Type::Map => {
+				field.type__as_map().map(|m| DataType::Map {
+					keys_sorted: m.keysSorted(),
+				})
+			}
+			Type::Duration => field
+				.type__as_duration()
+				.map(|d| DataType::Duration { unit: d.unit() }),
+			Type::LargeBinary => Some(DataType::LargeBinary),
+			Type::LargeUtf8 => Some(DataType::LargeUtf8),
+			Type::LargeList => Some(DataType::LargeList),
+			Type::RunEndEncoded => Some(DataType::RunEndEncoded),
+			Type::BinaryView => Some(DataType::BinaryView),
+			Type::Utf8View => Some(DataType::Utf8View),
+			Type::ListView => Some(DataType::ListView),
+			Type::LargeListView => Some(DataType::LargeListView),
+			_ => None,
 		}
 	}
 
@@ -372,5 +502,316 @@ impl DataType {
 			)
 			.as_union_value(),
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn roundtrip_schema(schema: &Schema) {
+		let mut builder = FlatBufferBuilder::new();
+		let offset = schema.serialize(&mut builder);
+		builder.finish(offset, None);
+		let bytes = builder.finished_data();
+
+		let fb = flatbuffers::root::<FbSchema<'_>>(bytes).unwrap();
+		let deserialized = Schema::deserialize(&fb);
+
+		assert_eq!(schema, &deserialized);
+	}
+
+	#[test]
+	fn empty_schema() {
+		let schema = Schema {
+			fields: vec![],
+			custom_metadata: vec![],
+		};
+		roundtrip_schema(&schema);
+	}
+
+	#[test]
+	fn schema_with_metadata() {
+		let schema = Schema {
+			fields: vec![],
+			custom_metadata: vec![
+				("key1".into(), "value1".into()),
+				("key2".into(), "value2".into()),
+			],
+		};
+		roundtrip_schema(&schema);
+	}
+
+	#[test]
+	fn schema_with_fields() {
+		let schema = Schema {
+			fields: vec![
+				Field {
+					name: "col1".into(),
+					nullable: false,
+					type_: DataType::Int {
+						bit_width: 32,
+						is_signed: true,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "col2".into(),
+					nullable: true,
+					type_: DataType::Utf8,
+					children: vec![],
+				},
+			],
+			custom_metadata: vec![],
+		};
+		roundtrip_schema(&schema);
+	}
+
+	#[test]
+	fn all_data_types() {
+		let schema = Schema {
+			fields: vec![
+				Field {
+					name: "null".into(),
+					nullable: true,
+					type_: DataType::Null,
+					children: vec![],
+				},
+				Field {
+					name: "int8".into(),
+					nullable: false,
+					type_: DataType::Int {
+						bit_width: 8,
+						is_signed: true,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "uint64".into(),
+					nullable: false,
+					type_: DataType::Int {
+						bit_width: 64,
+						is_signed: false,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "float32".into(),
+					nullable: false,
+					type_: DataType::FloatingPoint {
+						precision: Precision::SINGLE,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "float64".into(),
+					nullable: false,
+					type_: DataType::FloatingPoint {
+						precision: Precision::DOUBLE,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "bool".into(),
+					nullable: false,
+					type_: DataType::Bool,
+					children: vec![],
+				},
+				Field {
+					name: "binary".into(),
+					nullable: false,
+					type_: DataType::Binary,
+					children: vec![],
+				},
+				Field {
+					name: "utf8".into(),
+					nullable: false,
+					type_: DataType::Utf8,
+					children: vec![],
+				},
+				Field {
+					name: "decimal".into(),
+					nullable: false,
+					type_: DataType::Decimal {
+						precision: 38,
+						scale: 10,
+						bit_width: 256,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "date32".into(),
+					nullable: false,
+					type_: DataType::Date {
+						unit: DateUnit::DAY,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "date64".into(),
+					nullable: false,
+					type_: DataType::Date {
+						unit: DateUnit::MILLISECOND,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "time32".into(),
+					nullable: false,
+					type_: DataType::Time {
+						unit: TimeUnit::SECOND,
+						bit_width: 32,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "time64".into(),
+					nullable: false,
+					type_: DataType::Time {
+						unit: TimeUnit::NANOSECOND,
+						bit_width: 64,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "timestamp_no_tz".into(),
+					nullable: false,
+					type_: DataType::Timestamp {
+						unit: TimeUnit::MICROSECOND,
+						timezone: None,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "timestamp_with_tz".into(),
+					nullable: false,
+					type_: DataType::Timestamp {
+						unit: TimeUnit::SECOND,
+						timezone: Some("UTC".into()),
+					},
+					children: vec![],
+				},
+				Field {
+					name: "interval".into(),
+					nullable: false,
+					type_: DataType::Interval {
+						unit: IntervalUnit::YEAR_MONTH,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "list".into(),
+					nullable: false,
+					type_: DataType::List,
+					children: vec![Field {
+						name: "item".into(),
+						nullable: false,
+						type_: DataType::Int {
+							bit_width: 32,
+							is_signed: true,
+						},
+						children: vec![],
+					}],
+				},
+				Field {
+					name: "fsb".into(),
+					nullable: false,
+					type_: DataType::FixedSizeBinary {
+						byte_width: 16,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "fsl".into(),
+					nullable: false,
+					type_: DataType::FixedSizeList {
+						list_size: 3,
+					},
+					children: vec![Field {
+						name: "item".into(),
+						nullable: false,
+						type_: DataType::Int {
+							bit_width: 32,
+							is_signed: true,
+						},
+						children: vec![],
+					}],
+				},
+				Field {
+					name: "map".into(),
+					nullable: false,
+					type_: DataType::Map {
+						keys_sorted: true,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "duration".into(),
+					nullable: false,
+					type_: DataType::Duration {
+						unit: TimeUnit::NANOSECOND,
+					},
+					children: vec![],
+				},
+				Field {
+					name: "large_binary".into(),
+					nullable: false,
+					type_: DataType::LargeBinary,
+					children: vec![],
+				},
+				Field {
+					name: "large_utf8".into(),
+					nullable: false,
+					type_: DataType::LargeUtf8,
+					children: vec![],
+				},
+				Field {
+					name: "large_list".into(),
+					nullable: false,
+					type_: DataType::LargeList,
+					children: vec![Field {
+						name: "item".into(),
+						nullable: false,
+						type_: DataType::Int {
+							bit_width: 64,
+							is_signed: true,
+						},
+						children: vec![],
+					}],
+				},
+				Field {
+					name: "ree".into(),
+					nullable: false,
+					type_: DataType::RunEndEncoded,
+					children: vec![],
+				},
+				Field {
+					name: "binary_view".into(),
+					nullable: false,
+					type_: DataType::BinaryView,
+					children: vec![],
+				},
+				Field {
+					name: "utf8_view".into(),
+					nullable: false,
+					type_: DataType::Utf8View,
+					children: vec![],
+				},
+				Field {
+					name: "list_view".into(),
+					nullable: false,
+					type_: DataType::ListView,
+					children: vec![],
+				},
+				Field {
+					name: "large_list_view".into(),
+					nullable: false,
+					type_: DataType::LargeListView,
+					children: vec![],
+				},
+			],
+			custom_metadata: vec![("author".into(), "test".into())],
+		};
+		roundtrip_schema(&schema);
 	}
 }
