@@ -62,3 +62,23 @@ fn wrong_type() {
 	let err = w.write_batch([&a as &dyn picoarrow::array::Array, &wrong]);
 	assert!(matches!(err, Err(Error::BatchSchemaMismatch(_))));
 }
+
+#[test]
+fn different_lengths_second_array() {
+	let schema = make_schema();
+	let buf = Cursor::new(Vec::new());
+	let mut w = StreamWriter::new(buf, schema, Compression::None).unwrap();
+
+	let mut a: ArrayI32<NonNullable> = ArrayI32::new();
+	a.push(1);
+	a.push(2);
+
+	let mut b: ArrayUtf8<NonNullable> = ArrayUtf8::new();
+	b.push("x").unwrap();
+
+	let err = w.write_batch([&a as &dyn picoarrow::array::Array, &b]);
+	assert!(matches!(
+		err,
+		Err(Error::BatchDifferentLengths(inner)) if inner.0 == 2 && inner.1 == 1
+	));
+}
