@@ -49,6 +49,10 @@ fn simulate_boolean_nullable() {
 			}
 
 			assert_eq!(arr.len(), expected.len());
+			assert_eq!(
+				arr.null_count(),
+				expected.iter().filter(|v| v.is_none()).count()
+			);
 			for (i, v) in expected.iter().enumerate() {
 				assert_eq!(arr.get(i), *v);
 			}
