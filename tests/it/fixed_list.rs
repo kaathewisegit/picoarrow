@@ -68,7 +68,12 @@ fn simulate_fixed_list_nullable() {
 				arr.clear();
 			} else if u.ratio(1, 3)? {
 				expected.push(None);
-				arr.push_null();
+				arr.push_null(|child| {
+					for _ in 0..size {
+						child.push(0);
+					}
+				})
+				.unwrap();
 			} else {
 				let mut vals =
 					Vec::with_capacity(size as usize);
@@ -103,6 +108,7 @@ fn simulate_fixed_list_nullable() {
 					}
 					None => {
 						assert!(arr.is_null(i));
+						child_idx += size as usize;
 					}
 				}
 			}

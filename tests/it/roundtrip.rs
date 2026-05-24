@@ -21,7 +21,7 @@ use picoarrow::{
 		Array, ArrayBinary, ArrayBoolean, ArrayF32, ArrayF64,
 		ArrayFixedBinary, ArrayFixedSizeList, ArrayI8, ArrayI16,
 		ArrayI32, ArrayI64, ArrayU8, ArrayU16, ArrayU32, ArrayU64,
-		ArrayUtf8, NonNullable,
+		ArrayUtf8, NonNullable, Nullable,
 	},
 	ipc::{Compression, FileWriter, StreamWriter},
 };
@@ -56,6 +56,31 @@ pub enum AnyArray {
 		size: u32,
 		child: Box<AnyArray>,
 	},
+
+	NullableBool(Vec<Option<bool>>),
+	NullableU8(Vec<Option<u8>>),
+	NullableU16(Vec<Option<u16>>),
+	NullableU32(Vec<Option<u32>>),
+	NullableU64(Vec<Option<u64>>),
+	NullableI8(Vec<Option<i8>>),
+	NullableI16(Vec<Option<i16>>),
+	NullableI32(Vec<Option<i32>>),
+	NullableI64(Vec<Option<i64>>),
+	NullableF32(Vec<Option<f32>>),
+	NullableF64(Vec<Option<f64>>),
+	#[cfg(feature = "half")]
+	NullableF16(Vec<Option<f16>>),
+
+	NullableFixedSizeBinary {
+		size: u32,
+		data: Vec<Option<Vec<u8>>>,
+	},
+
+	NullableFixedSizeList {
+		size: u32,
+		child: Box<AnyArray>,
+		validity: Vec<bool>,
+	},
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,6 +108,57 @@ macro_rules! fsl_to_pico {
 	}};
 }
 
+macro_rules! push_nullable_primitive {
+	($values:expr, $arr_ty:ty) => {{
+		let mut arr = <$arr_ty>::new();
+		for val in $values {
+			match val {
+				Some(v) => arr.push(*v),
+				None => arr.push_null(),
+			}
+		}
+		Box::new(arr) as Box<dyn Array>
+	}};
+}
+
+macro_rules! fsl_to_pico_nullable {
+	($values:expr, $child_ty:ty, $size:expr, $validity:expr) => {{
+		let mut list = ArrayFixedSizeList::<$child_ty, Nullable>::new(
+			<$child_ty>::new(),
+			*$size as i32,
+		);
+		for (i, is_valid) in ($validity).iter().enumerate() {
+			let start = i * (*$size as usize);
+			let end = start + *$size as usize;
+			if *is_valid {
+				list.push(|c: &mut $child_ty| {
+					for &val in &$values[start..end] {
+						c.push(val);
+					}
+				})
+				.unwrap();
+			} else {
+				list.push_null(|c: &mut $child_ty| {
+					for &val in &$values[start..end] {
+						c.push(val);
+					}
+				})
+				.unwrap();
+			}
+		}
+		Box::new(list) as Box<dyn Array>
+	}};
+}
+
+macro_rules! arbitrary_primitive {
+	($u:expr, $len:expr, $variant:ident) => {{
+		let v = (0..$len)
+			.map(|_| $u.arbitrary())
+			.collect::<Result<_>>()?;
+		Ok(Self::$variant(v))
+	}};
+}
+
 impl AnyArray {
 	fn arbitrary_with_len(
 		u: &mut Unstructured<'_>,
@@ -95,111 +171,49 @@ impl AnyArray {
 		};
 		if !primitive_only {
 			variants.extend(12..=15);
+			variants.extend(16..=26);
+			if cfg!(feature = "half") {
+				variants.push(27);
+			}
+			variants.extend(28..=29);
 		}
 
 		match *u.choose(&variants)? {
-			0 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(bool::arbitrary(u)?);
-				}
-				Ok(Self::Bool(v))
-			}
-			1 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(u8::arbitrary(u)?);
-				}
-				Ok(Self::U8(v))
-			}
-			2 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(u16::arbitrary(u)?);
-				}
-				Ok(Self::U16(v))
-			}
-			3 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(u32::arbitrary(u)?);
-				}
-				Ok(Self::U32(v))
-			}
-			4 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(u64::arbitrary(u)?);
-				}
-				Ok(Self::U64(v))
-			}
-			5 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(i8::arbitrary(u)?);
-				}
-				Ok(Self::I8(v))
-			}
-			6 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(i16::arbitrary(u)?);
-				}
-				Ok(Self::I16(v))
-			}
-			7 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(i32::arbitrary(u)?);
-				}
-				Ok(Self::I32(v))
-			}
-			8 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(i64::arbitrary(u)?);
-				}
-				Ok(Self::I64(v))
-			}
-			9 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(f32::arbitrary(u)?);
-				}
-				Ok(Self::F32(v))
-			}
-			10 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(f64::arbitrary(u)?);
-				}
-				Ok(Self::F64(v))
-			}
+			0 => arbitrary_primitive!(u, len, Bool),
+			1 => arbitrary_primitive!(u, len, U8),
+			2 => arbitrary_primitive!(u, len, U16),
+			3 => arbitrary_primitive!(u, len, U32),
+			4 => arbitrary_primitive!(u, len, U64),
+			5 => arbitrary_primitive!(u, len, I8),
+			6 => arbitrary_primitive!(u, len, I16),
+			7 => arbitrary_primitive!(u, len, I32),
+			8 => arbitrary_primitive!(u, len, I64),
+			9 => arbitrary_primitive!(u, len, F32),
+			10 => arbitrary_primitive!(u, len, F64),
 			#[cfg(feature = "half")]
-			11 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(f16::arbitrary(u)?);
-				}
-				Ok(Self::F16(v))
-			}
+			11 => arbitrary_primitive!(u, len, F16),
 			12 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					let s_len = u.int_in_range(0..=32)?;
-					let bytes = u.bytes(s_len)?;
-					v.push(String::from_utf8_lossy(bytes)
-						.into_owned());
-				}
+				let v = (0..len)
+					.map(|_| -> Result<_> {
+						let s_len =
+							u.int_in_range(0..=32)?;
+						let bytes = u.bytes(s_len)?;
+						Ok(String::from_utf8_lossy(
+							bytes,
+						)
+						.into_owned())
+					})
+					.collect::<Result<_>>()?;
 				Ok(Self::Utf8(v))
 			}
 			13 => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					let b_len = u.int_in_range(0..=32)?;
-					let bytes = u.bytes(b_len)?;
-					v.push(bytes.to_vec());
-				}
+				let v = (0..len)
+					.map(|_| -> Result<_> {
+						let b_len =
+							u.int_in_range(0..=32)?;
+						Ok(u.bytes(b_len)?.to_vec())
+					})
+					.collect::<Result<_>>()?;
 				Ok(Self::Binary(v))
 			}
 			14 => {
@@ -219,6 +233,50 @@ impl AnyArray {
 				let data = u.bytes(total)?.to_vec();
 				Ok(Self::FixedSizeBinary { size, data })
 			}
+			16 => arbitrary_primitive!(u, len, NullableBool),
+			17 => arbitrary_primitive!(u, len, NullableU8),
+			18 => arbitrary_primitive!(u, len, NullableU16),
+			19 => arbitrary_primitive!(u, len, NullableU32),
+			20 => arbitrary_primitive!(u, len, NullableU64),
+			21 => arbitrary_primitive!(u, len, NullableI8),
+			22 => arbitrary_primitive!(u, len, NullableI16),
+			23 => arbitrary_primitive!(u, len, NullableI32),
+			24 => arbitrary_primitive!(u, len, NullableI64),
+			25 => arbitrary_primitive!(u, len, NullableF32),
+			26 => arbitrary_primitive!(u, len, NullableF64),
+			#[cfg(feature = "half")]
+			27 => arbitrary_primitive!(u, len, NullableF16),
+			28 => {
+				let size = u.int_in_range(1..=50)?;
+				let data = (0..len)
+					.map(|_| -> Result<_> {
+						Ok(if u.arbitrary()? {
+							None
+						} else {
+							Some(u.bytes(
+								size as usize
+							)?
+							.to_vec())
+						})
+					})
+					.collect::<Result<_>>()?;
+				Ok(Self::NullableFixedSizeBinary { size, data })
+			}
+			29 => {
+				let size = u.int_in_range(1..=8)?;
+				let child_len = size as usize * len;
+				let child = Self::arbitrary_with_len(
+					u, child_len, true,
+				)?;
+				let validity = (0..len)
+					.map(|_| u.arbitrary())
+					.collect::<Result<_>>()?;
+				Ok(Self::NullableFixedSizeList {
+					size,
+					child: child.into(),
+					validity,
+				})
+			}
 			_ => unreachable!(),
 		}
 	}
@@ -228,47 +286,42 @@ impl AnyArray {
 		u: &mut Unstructured<'_>,
 		len: usize,
 	) -> Result<Self> {
-		macro_rules! vec_of {
-			($ty:ty) => {{
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					v.push(<$ty>::arbitrary(u)?);
-				}
-				v
-			}};
-		}
-
 		match self {
-			Self::Bool(_) => Ok(Self::Bool(vec_of!(bool))),
-			Self::U8(_) => Ok(Self::U8(vec_of!(u8))),
-			Self::U16(_) => Ok(Self::U16(vec_of!(u16))),
-			Self::U32(_) => Ok(Self::U32(vec_of!(u32))),
-			Self::U64(_) => Ok(Self::U64(vec_of!(u64))),
-			Self::I8(_) => Ok(Self::I8(vec_of!(i8))),
-			Self::I16(_) => Ok(Self::I16(vec_of!(i16))),
-			Self::I32(_) => Ok(Self::I32(vec_of!(i32))),
-			Self::I64(_) => Ok(Self::I64(vec_of!(i64))),
-			Self::F32(_) => Ok(Self::F32(vec_of!(f32))),
-			Self::F64(_) => Ok(Self::F64(vec_of!(f64))),
+			Self::Bool(_) => arbitrary_primitive!(u, len, Bool),
+			Self::U8(_) => arbitrary_primitive!(u, len, U8),
+			Self::U16(_) => arbitrary_primitive!(u, len, U16),
+			Self::U32(_) => arbitrary_primitive!(u, len, U32),
+			Self::U64(_) => arbitrary_primitive!(u, len, U64),
+			Self::I8(_) => arbitrary_primitive!(u, len, I8),
+			Self::I16(_) => arbitrary_primitive!(u, len, I16),
+			Self::I32(_) => arbitrary_primitive!(u, len, I32),
+			Self::I64(_) => arbitrary_primitive!(u, len, I64),
+			Self::F32(_) => arbitrary_primitive!(u, len, F32),
+			Self::F64(_) => arbitrary_primitive!(u, len, F64),
 			#[cfg(feature = "half")]
-			Self::F16(_) => Ok(Self::F16(vec_of!(f16))),
+			Self::F16(_) => arbitrary_primitive!(u, len, F16),
 			Self::Utf8(_) => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					let s_len = u.int_in_range(0..=32)?;
-					let bytes = u.bytes(s_len)?;
-					v.push(String::from_utf8_lossy(bytes)
-						.into_owned());
-				}
+				let v = (0..len)
+					.map(|_| -> Result<_> {
+						let s_len =
+							u.int_in_range(0..=32)?;
+						let bytes = u.bytes(s_len)?;
+						Ok(String::from_utf8_lossy(
+							bytes,
+						)
+						.into_owned())
+					})
+					.collect::<Result<_>>()?;
 				Ok(Self::Utf8(v))
 			}
 			Self::Binary(_) => {
-				let mut v = Vec::with_capacity(len);
-				for _ in 0..len {
-					let b_len = u.int_in_range(0..=32)?;
-					let bytes = u.bytes(b_len)?;
-					v.push(bytes.to_vec());
-				}
+				let v = (0..len)
+					.map(|_| -> Result<_> {
+						let b_len =
+							u.int_in_range(0..=32)?;
+						Ok(u.bytes(b_len)?.to_vec())
+					})
+					.collect::<Result<_>>()?;
 				Ok(Self::Binary(v))
 			}
 			Self::FixedSizeBinary { size, .. } => {
@@ -282,6 +335,73 @@ impl AnyArray {
 				Ok(Self::FixedSizeList {
 					size: *size,
 					child: Box::new(new_child),
+				})
+			}
+			Self::NullableBool(_) => {
+				arbitrary_primitive!(u, len, NullableBool)
+			}
+			Self::NullableU8(_) => {
+				arbitrary_primitive!(u, len, NullableU8)
+			}
+			Self::NullableU16(_) => {
+				arbitrary_primitive!(u, len, NullableU16)
+			}
+			Self::NullableU32(_) => {
+				arbitrary_primitive!(u, len, NullableU32)
+			}
+			Self::NullableU64(_) => {
+				arbitrary_primitive!(u, len, NullableU64)
+			}
+			Self::NullableI8(_) => {
+				arbitrary_primitive!(u, len, NullableI8)
+			}
+			Self::NullableI16(_) => {
+				arbitrary_primitive!(u, len, NullableI16)
+			}
+			Self::NullableI32(_) => {
+				arbitrary_primitive!(u, len, NullableI32)
+			}
+			Self::NullableI64(_) => {
+				arbitrary_primitive!(u, len, NullableI64)
+			}
+			Self::NullableF32(_) => {
+				arbitrary_primitive!(u, len, NullableF32)
+			}
+			Self::NullableF64(_) => {
+				arbitrary_primitive!(u, len, NullableF64)
+			}
+			#[cfg(feature = "half")]
+			Self::NullableF16(_) => {
+				arbitrary_primitive!(u, len, NullableF16)
+			}
+			Self::NullableFixedSizeBinary { size, .. } => {
+				let data = (0..len)
+					.map(|_| -> Result<_> {
+						Ok(if u.arbitrary()? {
+							None
+						} else {
+							Some(u.bytes(
+								*size as usize
+							)?
+							.to_vec())
+						})
+					})
+					.collect::<Result<_>>()?;
+				Ok(Self::NullableFixedSizeBinary {
+					size: *size,
+					data,
+				})
+			}
+			Self::NullableFixedSizeList { size, child, .. } => {
+				let child_len = *size as usize * len;
+				let new_child = child.new_data(u, child_len)?;
+				let validity = (0..len)
+					.map(|_| u.arbitrary())
+					.collect::<Result<_>>()?;
+				Ok(Self::NullableFixedSizeList {
+					size: *size,
+					child: Box::new(new_child),
+					validity,
 				})
 			}
 		}
@@ -428,6 +548,143 @@ impl AnyArray {
 					),
 				}
 			}
+			Self::NullableBool(v) => {
+				push_nullable_primitive!(
+					v,
+					ArrayBoolean<Nullable>
+				)
+			}
+			Self::NullableU8(v) => {
+				push_nullable_primitive!(v, ArrayU8<Nullable>)
+			}
+			Self::NullableU16(v) => {
+				push_nullable_primitive!(v, ArrayU16<Nullable>)
+			}
+			Self::NullableU32(v) => {
+				push_nullable_primitive!(v, ArrayU32<Nullable>)
+			}
+			Self::NullableU64(v) => {
+				push_nullable_primitive!(v, ArrayU64<Nullable>)
+			}
+			Self::NullableI8(v) => {
+				push_nullable_primitive!(v, ArrayI8<Nullable>)
+			}
+			Self::NullableI16(v) => {
+				push_nullable_primitive!(v, ArrayI16<Nullable>)
+			}
+			Self::NullableI32(v) => {
+				push_nullable_primitive!(v, ArrayI32<Nullable>)
+			}
+			Self::NullableI64(v) => {
+				push_nullable_primitive!(v, ArrayI64<Nullable>)
+			}
+			Self::NullableF32(v) => {
+				push_nullable_primitive!(v, ArrayF32<Nullable>)
+			}
+			Self::NullableF64(v) => {
+				push_nullable_primitive!(v, ArrayF64<Nullable>)
+			}
+			#[cfg(feature = "half")]
+			Self::NullableF16(v) => {
+				push_nullable_primitive!(v, ArrayF16<Nullable>)
+			}
+			Self::NullableFixedSizeBinary { size, data } => {
+				let mut arr = ArrayFixedBinary::<Nullable>::new(
+					*size as i32,
+				);
+				for val in data {
+					match val {
+						Some(bytes) => {
+							arr.push(bytes)
+								.unwrap();
+						}
+						None => arr.push_null(),
+					}
+				}
+				Box::new(arr)
+			}
+			Self::NullableFixedSizeList {
+				size,
+				child,
+				validity,
+			} => match child.as_ref() {
+				AnyArray::Bool(v) => fsl_to_pico_nullable!(
+					v,
+					ArrayBoolean<NonNullable>,
+					size,
+					validity
+				),
+				AnyArray::U8(v) => fsl_to_pico_nullable!(
+					v,
+					ArrayU8<NonNullable>,
+					size,
+					validity
+				),
+				AnyArray::U16(v) => fsl_to_pico_nullable!(
+					v,
+					ArrayU16<NonNullable>,
+					size,
+					validity
+				),
+				AnyArray::U32(v) => fsl_to_pico_nullable!(
+					v,
+					ArrayU32<NonNullable>,
+					size,
+					validity
+				),
+				AnyArray::U64(v) => fsl_to_pico_nullable!(
+					v,
+					ArrayU64<NonNullable>,
+					size,
+					validity
+				),
+				AnyArray::I8(v) => fsl_to_pico_nullable!(
+					v,
+					ArrayI8<NonNullable>,
+					size,
+					validity
+				),
+				AnyArray::I16(v) => fsl_to_pico_nullable!(
+					v,
+					ArrayI16<NonNullable>,
+					size,
+					validity
+				),
+				AnyArray::I32(v) => fsl_to_pico_nullable!(
+					v,
+					ArrayI32<NonNullable>,
+					size,
+					validity
+				),
+				AnyArray::I64(v) => fsl_to_pico_nullable!(
+					v,
+					ArrayI64<NonNullable>,
+					size,
+					validity
+				),
+				AnyArray::F32(v) => fsl_to_pico_nullable!(
+					v,
+					ArrayF32<NonNullable>,
+					size,
+					validity
+				),
+				AnyArray::F64(v) => fsl_to_pico_nullable!(
+					v,
+					ArrayF64<NonNullable>,
+					size,
+					validity
+				),
+				#[cfg(feature = "half")]
+				AnyArray::F16(v) => fsl_to_pico_nullable!(
+					v,
+					ArrayF16<NonNullable>,
+					size,
+					validity
+				),
+				_ => panic!(
+					"unsupported NullableFixedSizeList child {child:?}"
+				),
+			},
 		}
 	}
 }
@@ -441,6 +698,21 @@ impl PartialEq for AnyArray {
 						|(x, y)| {
 							x.to_bits()
 								== y.to_bits()
+						},
+					)
+			};
+		}
+
+		macro_rules! nullable_floats_eq {
+			($a:expr, $b:expr) => {
+				$a.len() == $b.len()
+					&& $a.iter().zip($b.iter()).all(
+						|(x, y)| match (x, y) {
+							(None, None) => true,
+							(Some(a), Some(b)) => a
+								.to_bits()
+								== b.to_bits(),
+							_ => false,
 						},
 					)
 			};
@@ -477,6 +749,50 @@ impl PartialEq for AnyArray {
 					child: c2,
 				},
 			) => s1 == s2 && c1 == c2,
+
+			(Self::NullableBool(a), Self::NullableBool(b)) => {
+				a == b
+			}
+			(Self::NullableU8(a), Self::NullableU8(b)) => a == b,
+			(Self::NullableU16(a), Self::NullableU16(b)) => a == b,
+			(Self::NullableU32(a), Self::NullableU32(b)) => a == b,
+			(Self::NullableU64(a), Self::NullableU64(b)) => a == b,
+			(Self::NullableI8(a), Self::NullableI8(b)) => a == b,
+			(Self::NullableI16(a), Self::NullableI16(b)) => a == b,
+			(Self::NullableI32(a), Self::NullableI32(b)) => a == b,
+			(Self::NullableI64(a), Self::NullableI64(b)) => a == b,
+			(Self::NullableF32(a), Self::NullableF32(b)) => {
+				nullable_floats_eq!(a, b)
+			}
+			(Self::NullableF64(a), Self::NullableF64(b)) => {
+				nullable_floats_eq!(a, b)
+			}
+			#[cfg(feature = "half")]
+			(Self::NullableF16(a), Self::NullableF16(b)) => {
+				nullable_floats_eq!(a, b)
+			}
+			(
+				Self::NullableFixedSizeBinary {
+					size: s1,
+					data: d1,
+				},
+				Self::NullableFixedSizeBinary {
+					size: s2,
+					data: d2,
+				},
+			) => s1 == s2 && d1 == d2,
+			(
+				Self::NullableFixedSizeList {
+					size: s1,
+					child: c1,
+					validity: v1,
+				},
+				Self::NullableFixedSizeList {
+					size: s2,
+					child: c2,
+					validity: v2,
+				},
+			) => s1 == s2 && c1 == c2 && v1 == v2,
 			_ => false,
 		}
 	}
@@ -507,6 +823,24 @@ fn arrow_to_any(col: &ArrayRef, original: &AnyArray) -> AnyArray {
 				col.as_any().downcast_ref::<$arr_ty>().unwrap();
 			AnyArray::$variant(
 				(0..arr.len()).map(|i| arr.value(i)).collect(),
+			)
+		}};
+	}
+
+	macro_rules! downcast_nullable_primitive {
+		($arr_ty:ty, $variant:ident) => {{
+			let arr =
+				col.as_any().downcast_ref::<$arr_ty>().unwrap();
+			AnyArray::$variant(
+				(0..arr.len())
+					.map(|i| {
+						if arr.is_null(i) {
+							None
+						} else {
+							Some(arr.value(i))
+						}
+					})
+					.collect(),
 			)
 		}};
 	}
@@ -595,6 +929,77 @@ fn arrow_to_any(col: &ArrayRef, original: &AnyArray) -> AnyArray {
 			AnyArray::FixedSizeList {
 				size: *size,
 				child: Box::new(inner),
+			}
+		}
+		AnyArray::NullableBool(_) => {
+			downcast_nullable_primitive!(BooleanArray, NullableBool)
+		}
+		AnyArray::NullableU8(_) => {
+			downcast_nullable_primitive!(UInt8Array, NullableU8)
+		}
+		AnyArray::NullableU16(_) => {
+			downcast_nullable_primitive!(UInt16Array, NullableU16)
+		}
+		AnyArray::NullableU32(_) => {
+			downcast_nullable_primitive!(UInt32Array, NullableU32)
+		}
+		AnyArray::NullableU64(_) => {
+			downcast_nullable_primitive!(UInt64Array, NullableU64)
+		}
+		AnyArray::NullableI8(_) => {
+			downcast_nullable_primitive!(Int8Array, NullableI8)
+		}
+		AnyArray::NullableI16(_) => {
+			downcast_nullable_primitive!(Int16Array, NullableI16)
+		}
+		AnyArray::NullableI32(_) => {
+			downcast_nullable_primitive!(Int32Array, NullableI32)
+		}
+		AnyArray::NullableI64(_) => {
+			downcast_nullable_primitive!(Int64Array, NullableI64)
+		}
+		AnyArray::NullableF32(_) => {
+			downcast_nullable_primitive!(Float32Array, NullableF32)
+		}
+		AnyArray::NullableF64(_) => {
+			downcast_nullable_primitive!(Float64Array, NullableF64)
+		}
+		#[cfg(feature = "half")]
+		AnyArray::NullableF16(_) => {
+			downcast_nullable_primitive!(Float16Array, NullableF16)
+		}
+		AnyArray::NullableFixedSizeBinary { size, .. } => {
+			let arr = col
+				.as_any()
+				.downcast_ref::<FixedSizeBinaryArray>()
+				.unwrap();
+			assert_eq!(arr.value_length() as u32, *size);
+			let data: Vec<Option<Vec<u8>>> = (0..arr.len())
+				.map(|i| {
+					if arr.is_null(i) {
+						None
+					} else {
+						Some(arr.value(i).to_vec())
+					}
+				})
+				.collect();
+			AnyArray::NullableFixedSizeBinary { size: *size, data }
+		}
+		AnyArray::NullableFixedSizeList { size, child, .. } => {
+			let list_arr = col
+				.as_any()
+				.downcast_ref::<FixedSizeListArray>()
+				.unwrap();
+			assert_eq!(list_arr.value_length() as u32, *size);
+			let validity: Vec<bool> = (0..list_arr.len())
+				.map(|i| !list_arr.is_null(i))
+				.collect();
+			let child_col = list_arr.values();
+			let inner = arrow_to_any(child_col, child);
+			AnyArray::NullableFixedSizeList {
+				size: *size,
+				child: Box::new(inner),
+				validity,
 			}
 		}
 	}

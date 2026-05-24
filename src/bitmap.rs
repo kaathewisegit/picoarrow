@@ -10,7 +10,7 @@ pub trait ValidityBuffer {
 	/// Returns true if the bit at the given index is 0
 	fn is_null(&self, index: usize) -> bool;
 
-	fn null_count(&self) -> usize;
+	fn count_ones(&self) -> usize;
 
 	fn memory_size(&self) -> usize;
 
@@ -34,7 +34,7 @@ impl ValidityBuffer for () {
 		false
 	}
 
-	fn null_count(&self) -> usize {
+	fn count_ones(&self) -> usize {
 		0
 	}
 
@@ -112,7 +112,7 @@ impl ValidityBuffer for Vec<u8> {
 		(self[byte_index] & (1 << bit_offset)) == 0
 	}
 
-	fn null_count(&self) -> usize {
+	fn count_ones(&self) -> usize {
 		self.iter().map(|&b| b.count_ones() as usize).sum()
 	}
 

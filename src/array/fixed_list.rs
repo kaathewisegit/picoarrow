@@ -25,7 +25,11 @@ impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 	}
 
 	fn null_count(&self) -> usize {
-		self.validity.null_count()
+		if V::IS_NULLABLE {
+			self.len() - self.validity.count_ones()
+		} else {
+			0
+		}
 	}
 
 	fn memory_size(&self) -> usize {
@@ -121,10 +125,25 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 }
 
 impl<A: Array> ArrayFixedSizeList<A, Nullable> {
-	pub fn push_null(&mut self) {
-		let len = self.len;
-		self.validity.resize_bits(len + 1);
-		self.validity.set_bit(len, false);
+	pub fn push_null<F>(&mut self, f: F) -> Result<()>
+	where
+		F: FnOnce(&mut A),
+	{
+		let before = self.child.len();
+		f(&mut self.child);
+		let after = self.child.len();
+
+		if after - before != self.size as usize {
+			return Err(Error::WrongListAppendLength {
+				expected: self.size,
+				got: after - before,
+			});
+		}
+
+		self.validity.resize_bits(self.len + 1);
+		self.validity.set_bit(self.len, false);
 		self.len += 1;
+
+		Ok(())
 	}
 }

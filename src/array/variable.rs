@@ -30,7 +30,11 @@ impl<V: Validity> Array for ArrayBinary<V> {
 	}
 
 	fn null_count(&self) -> usize {
-		self.validity.null_count()
+		if V::IS_NULLABLE {
+			self.len() - self.validity.count_ones()
+		} else {
+			0
+		}
 	}
 
 	fn memory_size(&self) -> usize {
@@ -169,7 +173,11 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 	}
 
 	fn null_count(&self) -> usize {
-		self.validity.null_count()
+		if V::IS_NULLABLE {
+			self.len() - self.validity.count_ones()
+		} else {
+			0
+		}
 	}
 
 	fn memory_size(&self) -> usize {
