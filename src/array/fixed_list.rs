@@ -89,7 +89,7 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 	///
 	/// This method takes a closure which returns the nested list.  After
 	/// the closure yields `push` checks that the length has increased by
-	/// exactly `size` and returns [`Error::WrongListAppendLength`].
+	/// exactly `size` and returns [`Error::WrongAppendLength`].
 	///
 	/// On failure the internal state of this array gets corrupted, so it
 	/// can no longer be used.
@@ -102,8 +102,8 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 		let after = self.child.len();
 
 		if after - before != self.size as usize {
-			return Err(Error::WrongListAppendLength {
-				expected: self.size,
+			return Err(Error::WrongAppendLength {
+				expected: self.size as usize,
 				got: after - before,
 			});
 		}
@@ -134,8 +134,8 @@ impl<A: Array> ArrayFixedSizeList<A, Nullable> {
 		let after = self.child.len();
 
 		if after - before != self.size as usize {
-			return Err(Error::WrongListAppendLength {
-				expected: self.size,
+			return Err(Error::WrongAppendLength {
+				expected: self.size as usize,
 				got: after - before,
 			});
 		}

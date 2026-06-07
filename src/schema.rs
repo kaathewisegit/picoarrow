@@ -11,8 +11,9 @@ use crate::fb::{
 	LargeListArgs, LargeListView, LargeListViewArgs, LargeUtf8,
 	LargeUtf8Args, List, ListArgs, ListView, ListViewArgs, Map, MapArgs,
 	Null, NullArgs, Precision, RunEndEncoded, RunEndEncodedArgs,
-	Schema as FbSchema, SchemaArgs, Time, TimeArgs, TimeUnit, Timestamp,
-	TimestampArgs, Type, Utf8, Utf8Args, Utf8View, Utf8ViewArgs,
+	Schema as FbSchema, SchemaArgs, Struct_ as FbStruct, Struct_Args, Time,
+	TimeArgs, TimeUnit, Timestamp, TimestampArgs, Type, Utf8, Utf8Args,
+	Utf8View, Utf8ViewArgs,
 };
 
 /// Describes the types of a collection of arrays which can be serialized via
@@ -234,6 +235,7 @@ pub enum DataType {
 	Map {
 		keys_sorted: bool,
 	},
+	Struct,
 	Duration {
 		unit: TimeUnit,
 	},
@@ -267,6 +269,7 @@ impl DataType {
 			}
 			DataType::FixedSizeList { .. } => Type::FixedSizeList,
 			DataType::Map { .. } => Type::Map,
+			DataType::Struct => Type::Struct_,
 			DataType::Duration { .. } => Type::Duration,
 			DataType::LargeBinary => Type::LargeBinary,
 			DataType::LargeUtf8 => Type::LargeUtf8,
@@ -358,6 +361,7 @@ impl DataType {
 			Type::Utf8View => Some(DataType::Utf8View),
 			Type::ListView => Some(DataType::ListView),
 			Type::LargeListView => Some(DataType::LargeListView),
+			Type::Struct_ => Some(DataType::Struct),
 			_ => None,
 		}
 	}
@@ -459,6 +463,10 @@ impl DataType {
 					},
 				)
 				.as_union_value()
+			}
+			DataType::Struct => {
+				FbStruct::create(builder, &Struct_Args {})
+					.as_union_value()
 			}
 			DataType::Map { keys_sorted } => Map::create(
 				builder,

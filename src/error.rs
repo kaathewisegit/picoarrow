@@ -14,14 +14,12 @@ pub enum Error {
 	/// Errors returned by underlying writers used by the IPC serializers
 	WriteFailed(Box<IoError>),
 
-	/// Used by [`FixedSizeList::push`][p]
+	/// Used by [`FixedSizeList::push`][p] and [`ArrowStruct::push`][s]
 	///
 	/// [p]: super::array::ArrayFixedSizeList::push
-	WrongListAppendLength {
-		/// The child array must have been longer by this much after the
-		/// call to `push`
-		expected: i32,
-		/// The actual increase in length of the child array
+	/// [s]: super::array::ArrowStruct::push
+	WrongAppendLength {
+		expected: usize,
 		got: usize,
 	},
 
@@ -56,10 +54,10 @@ impl fmt::Display for Error {
 			Error::WriteFailed(e) => {
 				writeln!(f, "underlying writer failed: {e}")
 			}
-			Error::WrongListAppendLength { expected, got } => {
+			Error::WrongAppendLength { expected, got } => {
 				writeln!(
 					f,
-					"Tried to write {got} elements to a fixed sized list with the size of {expected}"
+					"Wrong append length: expected {expected}, got {got}"
 				)
 			}
 			Error::WrongBinaryAppendLength { expected, got } => {

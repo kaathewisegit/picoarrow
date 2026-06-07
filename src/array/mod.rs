@@ -16,6 +16,7 @@ mod boolean;
 mod fixed_binary;
 mod fixed_list;
 mod primitive;
+mod struct_;
 mod variable;
 
 pub use boolean::ArrayBoolean;
@@ -27,6 +28,7 @@ pub use primitive::{
 	ArrayF32, ArrayF64, ArrayI8, ArrayI16, ArrayI32, ArrayI64,
 	ArrayPrimitive, ArrayU8, ArrayU16, ArrayU32, ArrayU64,
 };
+pub use struct_::{ArrowStruct, StructFields};
 pub use variable::{ArrayBinary, ArrayUtf8};
 
 /// A unifying trait for [`Nullable`] and [`NonNullable`]

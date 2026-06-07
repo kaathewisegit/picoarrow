@@ -5,8 +5,8 @@ use arrow_array::Float16Array;
 use arrow_array::{
 	Array as _, ArrayRef, BinaryArray, BooleanArray, FixedSizeBinaryArray,
 	FixedSizeListArray, Float32Array, Float64Array, Int8Array, Int16Array,
-	Int32Array, Int64Array, StringArray, UInt8Array, UInt16Array,
-	UInt32Array, UInt64Array,
+	Int32Array, Int64Array, StringArray, StructArray as ArrowStructArray,
+	UInt8Array, UInt16Array, UInt32Array, UInt64Array,
 };
 use arrow_ipc::reader::{
 	FileReader as ArrowFileReader, StreamReader as ArrowStreamReader,
@@ -20,8 +20,9 @@ use picoarrow::{
 	array::{
 		Array, ArrayBinary, ArrayBoolean, ArrayF32, ArrayF64,
 		ArrayFixedBinary, ArrayFixedSizeList, ArrayI8, ArrayI16,
-		ArrayI32, ArrayI64, ArrayU8, ArrayU16, ArrayU32, ArrayU64,
-		ArrayUtf8, NonNullable, Nullable,
+		ArrayI32, ArrayI64, ArrayPrimitive, ArrayU8, ArrayU16,
+		ArrayU32, ArrayU64, ArrayUtf8, ArrowStruct, NonNullable,
+		Nullable,
 	},
 	ipc::{Compression, FileWriter, StreamWriter},
 };
@@ -79,6 +80,19 @@ pub enum AnyArray {
 	NullableFixedSizeList {
 		size: u32,
 		child: Box<AnyArray>,
+		validity: Vec<bool>,
+	},
+
+	Struct {
+		names: Vec<String>,
+		ids: Vec<i32>,
+		scores: Vec<i64>,
+	},
+
+	NullableStruct {
+		names: Vec<String>,
+		ids: Vec<i32>,
+		scores: Vec<i64>,
 		validity: Vec<bool>,
 	},
 }
@@ -176,6 +190,7 @@ impl AnyArray {
 				variants.push(27);
 			}
 			variants.extend(28..=29);
+			variants.extend(30..=31);
 		}
 
 		match *u.choose(&variants)? {
@@ -274,6 +289,42 @@ impl AnyArray {
 				Ok(Self::NullableFixedSizeList {
 					size,
 					child: child.into(),
+					validity,
+				})
+			}
+			30 => {
+				let ids = (0..len)
+					.map(|_| u.arbitrary())
+					.collect::<Result<_>>()?;
+				let scores = (0..len)
+					.map(|_| u.arbitrary())
+					.collect::<Result<_>>()?;
+				Ok(Self::Struct {
+					names: vec![
+						"id".into(),
+						"score".into(),
+					],
+					ids,
+					scores,
+				})
+			}
+			31 => {
+				let ids = (0..len)
+					.map(|_| u.arbitrary())
+					.collect::<Result<_>>()?;
+				let scores = (0..len)
+					.map(|_| u.arbitrary())
+					.collect::<Result<_>>()?;
+				let validity = (0..len)
+					.map(|_| u.arbitrary())
+					.collect::<Result<_>>()?;
+				Ok(Self::NullableStruct {
+					names: vec![
+						"id".into(),
+						"score".into(),
+					],
+					ids,
+					scores,
 					validity,
 				})
 			}
@@ -401,6 +452,36 @@ impl AnyArray {
 				Ok(Self::NullableFixedSizeList {
 					size: *size,
 					child: Box::new(new_child),
+					validity,
+				})
+			}
+			Self::Struct { names, .. } => {
+				let ids = (0..len)
+					.map(|_| u.arbitrary())
+					.collect::<Result<_>>()?;
+				let scores = (0..len)
+					.map(|_| u.arbitrary())
+					.collect::<Result<_>>()?;
+				Ok(Self::Struct {
+					names: names.clone(),
+					ids,
+					scores,
+				})
+			}
+			Self::NullableStruct { names, .. } => {
+				let ids = (0..len)
+					.map(|_| u.arbitrary())
+					.collect::<Result<_>>()?;
+				let scores = (0..len)
+					.map(|_| u.arbitrary())
+					.collect::<Result<_>>()?;
+				let validity = (0..len)
+					.map(|_| u.arbitrary())
+					.collect::<Result<_>>()?;
+				Ok(Self::NullableStruct {
+					names: names.clone(),
+					ids,
+					scores,
 					validity,
 				})
 			}
@@ -685,6 +766,69 @@ impl AnyArray {
 					"unsupported NullableFixedSizeList child {child:?}"
 				),
 			},
+			Self::Struct { names, ids, scores } => {
+				type Fields = (
+					ArrayPrimitive<i32, NonNullable>,
+					ArrayPrimitive<i64, NonNullable>,
+				);
+				let mut arr: ArrowStruct<Fields, NonNullable> =
+					ArrowStruct::new(
+						names.clone(),
+						(
+							ArrayPrimitive::new(),
+							ArrayPrimitive::new(),
+						),
+					);
+				for (&id, &score) in
+					ids.iter().zip(scores.iter())
+				{
+					arr.push(|fields| {
+						fields.0.push(id);
+						fields.1.push(score);
+					})
+					.unwrap();
+				}
+				Box::new(arr)
+			}
+			Self::NullableStruct {
+				names,
+				ids,
+				scores,
+				validity,
+			} => {
+				type Fields = (
+					ArrayPrimitive<i32, NonNullable>,
+					ArrayPrimitive<i64, NonNullable>,
+				);
+				let mut arr: ArrowStruct<Fields, Nullable> =
+					ArrowStruct::new(
+						names.clone(),
+						(
+							ArrayPrimitive::new(),
+							ArrayPrimitive::new(),
+						),
+					);
+				for (i, (&id, &score)) in ids
+					.iter()
+					.zip(scores.iter())
+					.enumerate()
+				{
+					if validity[i] {
+						arr.push(|fields| {
+							fields.0.push(id);
+							fields.1.push(score);
+						})
+						.unwrap();
+					} else {
+						arr.push_null(|fields| {
+							fields.0.push(id);
+							fields.1.push(score);
+						})
+						.unwrap();
+					}
+				}
+				Box::new(arr)
+			}
 		}
 	}
 }
@@ -793,6 +937,32 @@ impl PartialEq for AnyArray {
 					validity: v2,
 				},
 			) => s1 == s2 && c1 == c2 && v1 == v2,
+			(
+				Self::Struct {
+					names: n1,
+					ids: i1,
+					scores: s1,
+				},
+				Self::Struct {
+					names: n2,
+					ids: i2,
+					scores: s2,
+				},
+			) => n1 == n2 && i1 == i2 && s1 == s2,
+			(
+				Self::NullableStruct {
+					names: n1,
+					ids: i1,
+					scores: s1,
+					validity: v1,
+				},
+				Self::NullableStruct {
+					names: n2,
+					ids: i2,
+					scores: s2,
+					validity: v2,
+				},
+			) => n1 == n2 && i1 == i2 && s1 == s2 && v1 == v2,
 			_ => false,
 		}
 	}
@@ -999,6 +1169,70 @@ fn arrow_to_any(col: &ArrayRef, original: &AnyArray) -> AnyArray {
 			AnyArray::NullableFixedSizeList {
 				size: *size,
 				child: Box::new(inner),
+				validity,
+			}
+		}
+		AnyArray::Struct { names, .. } => {
+			let struct_arr = col
+				.as_any()
+				.downcast_ref::<ArrowStructArray>()
+				.unwrap();
+			let id_arr = struct_arr.column(0);
+			let score_arr = struct_arr.column(1);
+			let ids = (0..struct_arr.len())
+				.map(|i| {
+					id_arr.as_any()
+						.downcast_ref::<Int32Array>()
+						.unwrap()
+						.value(i)
+				})
+				.collect();
+			let scores = (0..struct_arr.len())
+				.map(|i| {
+					score_arr
+						.as_any()
+						.downcast_ref::<Int64Array>()
+						.unwrap()
+						.value(i)
+				})
+				.collect();
+			AnyArray::Struct {
+				names: names.clone(),
+				ids,
+				scores,
+			}
+		}
+		AnyArray::NullableStruct { names, .. } => {
+			let struct_arr = col
+				.as_any()
+				.downcast_ref::<ArrowStructArray>()
+				.unwrap();
+			let id_arr = struct_arr.column(0);
+			let score_arr = struct_arr.column(1);
+			let ids = (0..struct_arr.len())
+				.map(|i| {
+					id_arr.as_any()
+						.downcast_ref::<Int32Array>()
+						.unwrap()
+						.value(i)
+				})
+				.collect();
+			let scores = (0..struct_arr.len())
+				.map(|i| {
+					score_arr
+						.as_any()
+						.downcast_ref::<Int64Array>()
+						.unwrap()
+						.value(i)
+				})
+				.collect();
+			let validity: Vec<bool> = (0..struct_arr.len())
+				.map(|i| !struct_arr.is_null(i))
+				.collect();
+			AnyArray::NullableStruct {
+				names: names.clone(),
+				ids,
+				scores,
 				validity,
 			}
 		}

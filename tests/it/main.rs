@@ -5,4 +5,5 @@ mod ipc_metadata;
 mod ipc_serialize;
 mod primitive;
 mod roundtrip;
+mod struct_;
 mod variable;
