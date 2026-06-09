@@ -38,8 +38,8 @@ fn main() {
 	u.push(0x4f);
 	u.push(0x57);
 
-	b.push(true);
-	b.push(false);
+	b.push_some(true);
+	b.push_some(false);
 	b.push_null();
 
 	fs.push(|n| {

@@ -137,7 +137,7 @@ macro_rules! test_simulate_nullable {
 					} else {
 						let val: $ty = u.arbitrary()?;
 						expected.push(Some(val));
-						arr.push(val);
+						arr.push_some(val);
 					}
 
 					assert_eq!(arr.len(), expected.len());

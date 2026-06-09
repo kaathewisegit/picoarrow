@@ -125,18 +125,25 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 		Self { validity, values }
 	}
 
-	pub fn push(&mut self, value: T) {
-		self.validity.resize_bits(self.len() + 1);
-		self.validity.set_bit(self.len(), true);
-		self.values.push(value);
-	}
-
 	pub fn is_null(&self, index: usize) -> bool {
 		self.validity.is_null(index)
 	}
 }
 
 impl<T: Primitive> ArrayPrimitive<T, Nullable> {
+	pub fn push(&mut self, value: Option<T>) {
+		match value {
+			Some(v) => self.push_some(v),
+			None => self.push_null(),
+		}
+	}
+
+	pub fn push_some(&mut self, value: T) {
+		self.validity.resize_bits(self.len() + 1);
+		self.validity.set_bit(self.len(), true);
+		self.values.push(value);
+	}
+
 	pub fn push_null(&mut self) {
 		let len = self.len();
 		self.validity.resize_bits(len + 1);
@@ -162,6 +169,10 @@ impl<T: Primitive> ArrayPrimitive<T, Nullable> {
 }
 
 impl<T: Primitive> ArrayPrimitive<T, NonNullable> {
+	pub fn push(&mut self, value: T) {
+		self.values.push(value);
+	}
+
 	pub fn get(&self, index: usize) -> &T {
 		&self.values[index]
 	}

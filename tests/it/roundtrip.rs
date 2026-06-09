@@ -127,7 +127,7 @@ macro_rules! push_nullable_primitive {
 		let mut arr = <$arr_ty>::new();
 		for val in $values {
 			match val {
-				Some(v) => arr.push(*v),
+				Some(v) => arr.push_some(*v),
 				None => arr.push_null(),
 			}
 		}

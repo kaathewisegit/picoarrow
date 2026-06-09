@@ -45,7 +45,7 @@ fn simulate_boolean_nullable() {
 			} else {
 				let val: bool = u.arbitrary()?;
 				expected.push(Some(val));
-				arr.push(val);
+				arr.push_some(val);
 			}
 
 			assert_eq!(arr.len(), expected.len());

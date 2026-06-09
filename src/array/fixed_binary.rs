@@ -81,23 +81,6 @@ impl<V: Validity> ArrayFixedBinary<V> {
 		}
 	}
 
-	/// Append a fixed-size binary value
-	///
-	/// Returns [`Error::WrongBinaryAppendLength`] if the length of `bytes`
-	/// does not match the element size of the array.
-	pub fn push(&mut self, bytes: &[u8]) -> Result<()> {
-		if bytes.len() != self.byte_width() {
-			return Err(Error::WrongBinaryAppendLength {
-				expected: self.byte_width,
-				got: bytes.len(),
-			});
-		}
-		self.validity.resize_bits(self.len() + 1);
-		self.validity.set_bit(self.len(), true);
-		self.data.extend_from_slice(bytes);
-		Ok(())
-	}
-
 	pub fn is_null(&self, index: usize) -> bool {
 		self.validity.is_null(index)
 	}
@@ -111,6 +94,23 @@ impl<V: Validity> ArrayFixedBinary<V> {
 		let start = index * self.byte_width();
 		let end = start + self.byte_width();
 		&mut self.data[start..end]
+	}
+
+	/// Append a fixed-size binary value
+	///
+	/// Returns [`Error::WrongBinaryAppendLength`] if the length of
+	/// `bytes` does not match the element size of the array.
+	pub fn push(&mut self, bytes: &[u8]) -> Result<()> {
+		if bytes.len() != self.byte_width() {
+			return Err(Error::WrongBinaryAppendLength {
+				expected: self.byte_width,
+				got: bytes.len(),
+			});
+		}
+		self.validity.resize_bits(self.len() + 1);
+		self.validity.set_bit(self.len(), true);
+		self.data.extend_from_slice(bytes);
+		Ok(())
 	}
 }
 
