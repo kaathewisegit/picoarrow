@@ -11,15 +11,15 @@ pub trait StructFields: seal::Seal {
 	fn for_each_mut(&mut self, f: &mut dyn FnMut(&mut dyn Array));
 }
 
-pub struct ArrowStruct<F: StructFields, V: Validity> {
+pub struct ArrayStruct<F: StructFields, V: Validity> {
 	len: usize,
 	names: Vec<String>,
 	fields: F,
 	validity: V::Container,
 }
 
-impl<F: StructFields, V: Validity> seal::Seal for ArrowStruct<F, V> {}
-impl<F: StructFields, V: Validity> Array for ArrowStruct<F, V> {
+impl<F: StructFields, V: Validity> seal::Seal for ArrayStruct<F, V> {}
+impl<F: StructFields, V: Validity> Array for ArrayStruct<F, V> {
 	fn len(&self) -> usize {
 		self.len
 	}
@@ -88,7 +88,7 @@ impl<F: StructFields, V: Validity> Array for ArrowStruct<F, V> {
 	}
 }
 
-impl<F: StructFields, V: Validity> ArrowStruct<F, V> {
+impl<F: StructFields, V: Validity> ArrayStruct<F, V> {
 	pub fn new(names: Vec<String>, fields: F) -> Self {
 		Self {
 			len: 0,
@@ -135,7 +135,7 @@ impl<F: StructFields, V: Validity> ArrowStruct<F, V> {
 	}
 }
 
-impl<F: StructFields> ArrowStruct<F, Nullable> {
+impl<F: StructFields> ArrayStruct<F, Nullable> {
 	pub fn push_null<Func>(&mut self, f: Func) -> Result<()>
 	where
 		Func: FnOnce(&mut F),

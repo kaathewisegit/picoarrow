@@ -1,6 +1,6 @@
 use arbtest::arbtest;
 use picoarrow::array::{
-	Array, ArrayPrimitive, ArrowStruct, NonNullable, Nullable,
+	Array, ArrayPrimitive, ArrayStruct, NonNullable, Nullable,
 };
 
 type Fields = (
@@ -14,8 +14,8 @@ fn simulate_struct() {
 		let steps = u.int_in_range(0..=5_000)?;
 		let mut expected_ids: Vec<i32> = Vec::new();
 		let mut expected_scores: Vec<i64> = Vec::new();
-		let mut arr: ArrowStruct<Fields, NonNullable> =
-			ArrowStruct::new(
+		let mut arr: ArrayStruct<Fields, NonNullable> =
+			ArrayStruct::new(
 				vec!["id".into(), "score".into()],
 				(ArrayPrimitive::new(), ArrayPrimitive::new()),
 			);
@@ -56,7 +56,7 @@ fn simulate_struct_nullable() {
 	arbtest(|u| {
 		let steps = u.int_in_range(0..=5_000)?;
 		let mut expected: Vec<Option<(i32, i64)>> = Vec::new();
-		let mut arr: ArrowStruct<Fields, Nullable> = ArrowStruct::new(
+		let mut arr: ArrayStruct<Fields, Nullable> = ArrayStruct::new(
 			vec!["id".into(), "score".into()],
 			(ArrayPrimitive::new(), ArrayPrimitive::new()),
 		);
@@ -111,7 +111,7 @@ fn simulate_struct_nullable() {
 
 #[test]
 fn struct_push_wrong_length() {
-	let mut arr: ArrowStruct<Fields, NonNullable> = ArrowStruct::new(
+	let mut arr: ArrayStruct<Fields, NonNullable> = ArrayStruct::new(
 		vec!["id".into(), "score".into()],
 		(ArrayPrimitive::new(), ArrayPrimitive::new()),
 	);

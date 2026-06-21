@@ -20,9 +20,8 @@ use picoarrow::{
 	array::{
 		Array, ArrayBinary, ArrayBoolean, ArrayF32, ArrayF64,
 		ArrayFixedBinary, ArrayFixedSizeList, ArrayI8, ArrayI16,
-		ArrayI32, ArrayI64, ArrayPrimitive, ArrayU8, ArrayU16,
-		ArrayU32, ArrayU64, ArrayUtf8, ArrowStruct, NonNullable,
-		Nullable,
+		ArrayI32, ArrayI64, ArrayPrimitive, ArrayStruct, ArrayU8,
+		ArrayU16, ArrayU32, ArrayU64, ArrayUtf8, NonNullable, Nullable,
 	},
 	ipc::{Compression, FileWriter, StreamWriter},
 };
@@ -771,8 +770,8 @@ impl AnyArray {
 					ArrayPrimitive<i32, NonNullable>,
 					ArrayPrimitive<i64, NonNullable>,
 				);
-				let mut arr: ArrowStruct<Fields, NonNullable> =
-					ArrowStruct::new(
+				let mut arr: ArrayStruct<Fields, NonNullable> =
+					ArrayStruct::new(
 						names.clone(),
 						(
 							ArrayPrimitive::new(),
@@ -800,8 +799,8 @@ impl AnyArray {
 					ArrayPrimitive<i32, NonNullable>,
 					ArrayPrimitive<i64, NonNullable>,
 				);
-				let mut arr: ArrowStruct<Fields, Nullable> =
-					ArrowStruct::new(
+				let mut arr: ArrayStruct<Fields, Nullable> =
+					ArrayStruct::new(
 						names.clone(),
 						(
 							ArrayPrimitive::new(),
