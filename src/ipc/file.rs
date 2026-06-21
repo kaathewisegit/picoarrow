@@ -9,6 +9,7 @@ use crate::{
 	fb::{Block, Footer, FooterArgs, MetadataVersion},
 };
 
+/// A wrapper over [`StreamWriter`] which implements the Arrow IPC file format
 pub struct FileWriter<W> {
 	cursor: usize,
 	writer: StreamWriter<W>,

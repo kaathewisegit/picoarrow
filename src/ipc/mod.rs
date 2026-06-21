@@ -26,7 +26,9 @@ pub use stream::StreamWriter;
 /// crate features.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Compression {
+	/// No compression, all buffers are copied verbatim
 	None,
+	/// LZ4 compression via the `lz4_flex` crate
 	#[cfg(feature = "lz4")]
 	LZ4,
 	/// ZSTD compression via the `zstd` crate

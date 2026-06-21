@@ -129,10 +129,11 @@ impl Schema {
 	}
 }
 
-/// A named column in a record/row batch
+/// A named column in a record or a row batch
 ///
-/// Fields can have children, which can also be named.  But `picoarrow` only
-/// supports lists, so nested arrays will always have a name of `item`.
+/// Fields can have children, which can also be named.  The names of the
+/// children depend on the array type.  List types will always call their child
+/// `item`, while `ArrayStruct` allows specifying custom names.
 #[derive(Debug, Clone)]
 pub struct Field {
 	pub(crate) name: String,
