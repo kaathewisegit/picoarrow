@@ -1,4 +1,6 @@
-use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, WIPOffset};
+use flatbuffers::{
+	FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, Vector, WIPOffset,
+};
 
 use crate::array::Array;
 use crate::fb::{
@@ -95,27 +97,8 @@ impl Schema {
 		let features =
 			builder.create_vector(&[Feature::COMPRESSED_BODY]);
 
-		let custom_metadata = if self.custom_metadata.is_empty() {
-			None
-		} else {
-			let kv_offsets: Vec<_> = self
-				.custom_metadata
-				.iter()
-				.map(|(key, value)| {
-					let key = builder.create_string(key);
-					let value =
-						builder.create_string(value);
-					KeyValue::create(
-						builder,
-						&KeyValueArgs {
-							key: Some(key),
-							value: Some(value),
-						},
-					)
-				})
-				.collect();
-			Some(builder.create_vector(&kv_offsets))
-		};
+		let custom_metadata =
+			create_custom_metadata(&self.custom_metadata, builder);
 
 		FbSchema::create(
 			builder,
@@ -126,6 +109,31 @@ impl Schema {
 				features: Some(features),
 			},
 		)
+	}
+}
+
+pub(crate) fn create_custom_metadata<'fbb>(
+	metadata: &[(String, String)],
+	builder: &mut FlatBufferBuilder<'fbb>,
+) -> Option<WIPOffset<Vector<'fbb, ForwardsUOffset<KeyValue<'fbb>>>>> {
+	if metadata.is_empty() {
+		None
+	} else {
+		let kv_offsets: Vec<_> = metadata
+			.iter()
+			.map(|(key, value)| {
+				let key = builder.create_string(key);
+				let value = builder.create_string(value);
+				KeyValue::create(
+					builder,
+					&KeyValueArgs {
+						key: Some(key),
+						value: Some(value),
+					},
+				)
+			})
+			.collect();
+		Some(builder.create_vector(&kv_offsets))
 	}
 }
 
