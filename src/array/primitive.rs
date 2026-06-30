@@ -1,4 +1,4 @@
-use bytemuck::{NoUninit, cast_slice};
+use bytemuck::{AnyBitPattern, NoUninit, cast_slice, cast_slice_mut};
 
 use std::ops::{Deref, DerefMut};
 
@@ -10,7 +10,7 @@ use crate::{
 	seal,
 };
 
-pub trait Primitive: NoUninit + Default + seal::Seal {
+pub trait Primitive: NoUninit + AnyBitPattern + Default + seal::Seal {
 	fn data_type() -> DataType;
 }
 
@@ -127,6 +127,14 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 
 	pub fn is_null(&self, index: usize) -> bool {
 		self.validity.is_null(index)
+	}
+
+	pub fn extend_from_slice(&mut self, other: &[T]) {
+		let start = self.values.len();
+		self.validity.push_many(start, true, other.len());
+		self.values.resize_with(start + other.len(), T::default);
+		let dst: &mut [u8] = cast_slice_mut(&mut self.values[start..]);
+		dst.copy_from_slice(cast_slice(other));
 	}
 }
 

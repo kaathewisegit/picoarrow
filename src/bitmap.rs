@@ -84,23 +84,29 @@ impl ValidityBuffer for Vec<u8> {
 		if valid {
 			let first_byte = start_bit / 8;
 			let last_byte = end_bit / 8;
-
 			let first_offset = start_bit % 8;
-			if first_offset != 0 {
-				let first_count = 8 - first_offset;
-				self[first_byte] |= (1u8 << first_count) - 1;
-			}
+			let last_offset = end_bit % 8;
 
-			let middle_start =
-				first_byte + usize::from(first_offset != 0);
-			let middle_end = last_byte;
-			for byte in &mut self[middle_start..middle_end] {
-				*byte = 0xFF;
-			}
+			if first_byte == last_byte {
+				let mask = ((1u8 << last_offset) - 1)
+					& (0xFFu8 << first_offset);
+				self[first_byte] |= mask;
+			} else {
+				if first_offset != 0 {
+					self[first_byte] |=
+						0xFFu8 << first_offset;
+				}
 
-			let last_count = end_bit % 8;
-			if last_count != 0 {
-				self[last_byte] |= (1u8 << last_count) - 1;
+				let middle_start = first_byte
+					+ usize::from(first_offset != 0);
+				for byte in &mut self[middle_start..last_byte] {
+					*byte = 0xFF;
+				}
+
+				if last_offset != 0 {
+					self[last_byte] |=
+						(1u8 << last_offset) - 1;
+				}
 			}
 		}
 	}
