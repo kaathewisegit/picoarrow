@@ -216,6 +216,29 @@ impl<T: Primitive> From<Vec<T>> for ArrayPrimitive<T, NonNullable> {
 	}
 }
 
+impl<T: Primitive> Extend<Option<T>> for ArrayPrimitive<T, Nullable> {
+	fn extend<I: IntoIterator<Item = Option<T>>>(&mut self, iter: I) {
+		let iter = iter.into_iter();
+		let (lower, _) = iter.size_hint();
+		self.values.reserve(lower);
+		self.validity.reserve(lower.div_ceil(8));
+		for item in iter {
+			self.push(item);
+		}
+	}
+}
+
+impl<T: Primitive> Extend<T> for ArrayPrimitive<T, NonNullable> {
+	fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+		let iter = iter.into_iter();
+		let (lower, _) = iter.size_hint();
+		self.values.reserve(lower);
+		for item in iter {
+			self.push(item);
+		}
+	}
+}
+
 /// An array of [`u8`]'s.
 ///
 /// It is restricted by the API of [`ArrayPrimitive`] and treats each byte as an
