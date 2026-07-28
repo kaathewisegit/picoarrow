@@ -154,9 +154,10 @@ pub struct Field {
 
 impl PartialEq for Field {
 	fn eq(&self, other: &Self) -> bool {
-		self.type_ == other.type_
+		self.name == other.name
+			&& self.nullable == other.nullable
+			&& self.type_ == other.type_
 			&& self.children == other.children
-			&& self.custom_metadata == other.custom_metadata
 	}
 }
 
