@@ -194,3 +194,36 @@ fn field_types_roundtrip() {
 		assert!(field.metadata().is_empty(), "field {i} metadata");
 	}
 }
+
+#[test]
+fn field_metadata_roundtrip() {
+	let a = ArrayI32::<NonNullable>::new();
+	let b = ArrayUtf8::<NonNullable>::new();
+	let pairs: Vec<(&str, &dyn Array)> = vec![("a", &a), ("b", &b)];
+	let mut schema = Schema::from_arrays(pairs);
+
+	schema.fields[0].custom_metadata = vec![
+		("a_key".to_string(), "a_value".to_string()),
+		("shared".to_string(), "first".to_string()),
+	];
+	schema.fields[1].custom_metadata =
+		vec![("b_key".to_string(), "b_value".to_string())];
+
+	let arrow_schema = roundtrip_schema(schema);
+	let fields = arrow_schema.fields();
+	assert_eq!(fields.len(), 2);
+
+	let expected_a: HashMap<String, String> = [
+		("a_key".to_string(), "a_value".to_string()),
+		("shared".to_string(), "first".to_string()),
+	]
+	.into_iter()
+	.collect();
+	assert_eq!(fields[0].metadata(), &expected_a);
+
+	let expected_b: HashMap<String, String> =
+		[("b_key".to_string(), "b_value".to_string())]
+			.into_iter()
+			.collect();
+	assert_eq!(fields[1].metadata(), &expected_b);
+}

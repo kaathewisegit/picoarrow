@@ -149,7 +149,7 @@ pub struct Field {
 	pub(crate) nullable: bool,
 	pub(crate) type_: DataType,
 	pub(crate) children: Vec<Field>,
-	pub(crate) custom_metadata: Vec<(String, String)>,
+	pub custom_metadata: Vec<(String, String)>,
 }
 
 impl PartialEq for Field {
