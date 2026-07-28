@@ -55,6 +55,7 @@ impl<A: Array, V: Validity> Array for ArrayFixedSizeList<A, V> {
 				list_size: self.size,
 			},
 			children: vec![self.child.make_field("item")],
+			custom_metadata: Vec::new(),
 		}
 	}
 

@@ -70,6 +70,7 @@ impl<F: StructFields, V: Validity> Array for ArrayStruct<F, V> {
 			nullable: V::IS_NULLABLE,
 			type_: DataType::Struct,
 			children,
+			custom_metadata: Vec::new(),
 		}
 	}
 

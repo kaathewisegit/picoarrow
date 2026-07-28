@@ -53,6 +53,7 @@ impl<V: Validity> Array for ArrayFixedBinary<V> {
 				byte_width: self.byte_width,
 			},
 			children: Vec::new(),
+			custom_metadata: Vec::new(),
 		}
 	}
 

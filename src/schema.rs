@@ -59,27 +59,11 @@ impl Schema {
 			.map(|f| f.iter().map(|f| Field::from_fb(&f)).collect())
 			.unwrap_or_default();
 
-		let custom_metadata = fb
-			.custom_metadata()
-			.map(|kv| {
-				kv.iter()
-					.filter_map(|kv| {
-						let key = kv.key()?;
-						let value = kv
-							.value()
-							.unwrap_or_default();
-						Some((
-							key.to_owned(),
-							value.to_owned(),
-						))
-					})
-					.collect()
-			})
-			.unwrap_or_default();
-
 		Self {
 			fields,
-			custom_metadata,
+			custom_metadata: deserialize_custom_metadata(
+				fb.custom_metadata(),
+			),
 		}
 	}
 
@@ -97,8 +81,10 @@ impl Schema {
 		let features =
 			builder.create_vector(&[Feature::COMPRESSED_BODY]);
 
-		let custom_metadata =
-			create_custom_metadata(&self.custom_metadata, builder);
+		let custom_metadata = serialize_custom_metadata(
+			&self.custom_metadata,
+			builder,
+		);
 
 		FbSchema::create(
 			builder,
@@ -112,7 +98,7 @@ impl Schema {
 	}
 }
 
-pub(crate) fn create_custom_metadata<'fbb>(
+pub(crate) fn serialize_custom_metadata<'fbb>(
 	metadata: &[(String, String)],
 	builder: &mut FlatBufferBuilder<'fbb>,
 ) -> Option<WIPOffset<Vector<'fbb, ForwardsUOffset<KeyValue<'fbb>>>>> {
@@ -137,6 +123,21 @@ pub(crate) fn create_custom_metadata<'fbb>(
 	}
 }
 
+pub(crate) fn deserialize_custom_metadata<'a>(
+	metadata: Option<Vector<'a, ForwardsUOffset<KeyValue<'a>>>>,
+) -> Vec<(String, String)> {
+	metadata.map(|kv| {
+		kv.iter()
+			.filter_map(|kv| {
+				let key = kv.key()?;
+				let value = kv.value().unwrap_or_default();
+				Some((key.to_owned(), value.to_owned()))
+			})
+			.collect()
+	})
+	.unwrap_or_default()
+}
+
 /// A named column in a record or a row batch
 ///
 /// Fields can have children, which can also be named.  The names of the
@@ -148,11 +149,14 @@ pub struct Field {
 	pub(crate) nullable: bool,
 	pub(crate) type_: DataType,
 	pub(crate) children: Vec<Field>,
+	pub(crate) custom_metadata: Vec<(String, String)>,
 }
 
 impl PartialEq for Field {
 	fn eq(&self, other: &Self) -> bool {
-		self.type_ == other.type_ && self.children == other.children
+		self.type_ == other.type_
+			&& self.children == other.children
+			&& self.custom_metadata == other.custom_metadata
 	}
 }
 
@@ -170,6 +174,9 @@ impl Field {
 						.collect()
 				})
 				.unwrap_or_default(),
+			custom_metadata: deserialize_custom_metadata(
+				field.custom_metadata(),
+			),
 		}
 	}
 
@@ -187,6 +194,11 @@ impl Field {
 			.collect();
 		let children = builder.create_vector(&children);
 
+		let custom_metadata = serialize_custom_metadata(
+			&self.custom_metadata,
+			builder,
+		);
+
 		FbField::create(
 			builder,
 			&FieldArgs {
@@ -196,7 +208,7 @@ impl Field {
 				type_: Some(data_type),
 				dictionary: None,
 				children: Some(children),
-				custom_metadata: None,
+				custom_metadata,
 			},
 		)
 	}
@@ -577,12 +589,14 @@ mod tests {
 						is_signed: true,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "col2".into(),
 					nullable: true,
 					type_: DataType::Utf8,
 					children: vec![],
+					custom_metadata: vec![],
 				},
 			],
 			custom_metadata: vec![],
@@ -599,6 +613,7 @@ mod tests {
 					nullable: true,
 					type_: DataType::Null,
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "int8".into(),
@@ -608,6 +623,7 @@ mod tests {
 						is_signed: true,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "uint64".into(),
@@ -617,6 +633,7 @@ mod tests {
 						is_signed: false,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "float32".into(),
@@ -625,6 +642,7 @@ mod tests {
 						precision: Precision::SINGLE,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "float64".into(),
@@ -633,24 +651,28 @@ mod tests {
 						precision: Precision::DOUBLE,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "bool".into(),
 					nullable: false,
 					type_: DataType::Bool,
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "binary".into(),
 					nullable: false,
 					type_: DataType::Binary,
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "utf8".into(),
 					nullable: false,
 					type_: DataType::Utf8,
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "decimal".into(),
@@ -661,6 +683,7 @@ mod tests {
 						bit_width: 256,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "date32".into(),
@@ -669,6 +692,7 @@ mod tests {
 						unit: DateUnit::DAY,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "date64".into(),
@@ -677,6 +701,7 @@ mod tests {
 						unit: DateUnit::MILLISECOND,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "time32".into(),
@@ -686,6 +711,7 @@ mod tests {
 						bit_width: 32,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "time64".into(),
@@ -695,6 +721,7 @@ mod tests {
 						bit_width: 64,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "timestamp_no_tz".into(),
@@ -704,6 +731,7 @@ mod tests {
 						timezone: None,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "timestamp_with_tz".into(),
@@ -713,6 +741,7 @@ mod tests {
 						timezone: Some("UTC".into()),
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "interval".into(),
@@ -721,6 +750,7 @@ mod tests {
 						unit: IntervalUnit::YEAR_MONTH,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "list".into(),
@@ -734,7 +764,9 @@ mod tests {
 							is_signed: true,
 						},
 						children: vec![],
+						custom_metadata: vec![],
 					}],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "fsb".into(),
@@ -743,6 +775,7 @@ mod tests {
 						byte_width: 16,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "fsl".into(),
@@ -758,7 +791,9 @@ mod tests {
 							is_signed: true,
 						},
 						children: vec![],
+						custom_metadata: vec![],
 					}],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "map".into(),
@@ -767,6 +802,7 @@ mod tests {
 						keys_sorted: true,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "duration".into(),
@@ -775,18 +811,21 @@ mod tests {
 						unit: TimeUnit::NANOSECOND,
 					},
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "large_binary".into(),
 					nullable: false,
 					type_: DataType::LargeBinary,
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "large_utf8".into(),
 					nullable: false,
 					type_: DataType::LargeUtf8,
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "large_list".into(),
@@ -800,40 +839,68 @@ mod tests {
 							is_signed: true,
 						},
 						children: vec![],
+						custom_metadata: vec![],
 					}],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "ree".into(),
 					nullable: false,
 					type_: DataType::RunEndEncoded,
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "binary_view".into(),
 					nullable: false,
 					type_: DataType::BinaryView,
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "utf8_view".into(),
 					nullable: false,
 					type_: DataType::Utf8View,
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "list_view".into(),
 					nullable: false,
 					type_: DataType::ListView,
 					children: vec![],
+					custom_metadata: vec![],
 				},
 				Field {
 					name: "large_list_view".into(),
 					nullable: false,
 					type_: DataType::LargeListView,
 					children: vec![],
+					custom_metadata: vec![],
 				},
 			],
 			custom_metadata: vec![("author".into(), "test".into())],
+		};
+		roundtrip_schema(&schema);
+	}
+
+	#[test]
+	fn field_with_metadata() {
+		let schema = Schema {
+			fields: vec![Field {
+				name: "col".into(),
+				nullable: false,
+				type_: DataType::Int {
+					bit_width: 32,
+					is_signed: true,
+				},
+				children: vec![],
+				custom_metadata: vec![
+					("k1".into(), "v1".into()),
+					("k2".into(), "v2".into()),
+				],
+			}],
+			custom_metadata: vec![],
 		};
 		roundtrip_schema(&schema);
 	}

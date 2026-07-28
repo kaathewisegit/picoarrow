@@ -97,6 +97,7 @@ impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 			nullable: V::IS_NULLABLE,
 			type_: T::data_type(),
 			children: Vec::new(),
+			custom_metadata: Vec::new(),
 		}
 	}
 

@@ -58,6 +58,7 @@ impl<V: Validity> Array for ArrayBoolean<V> {
 			nullable: V::IS_NULLABLE,
 			type_: DataType::Bool,
 			children: Vec::new(),
+			custom_metadata: Vec::new(),
 		}
 	}
 

@@ -61,6 +61,7 @@ impl<V: Validity> Array for ArrayBinary<V> {
 			nullable: V::IS_NULLABLE,
 			type_: DataType::Binary,
 			children: Vec::new(),
+			custom_metadata: Vec::new(),
 		}
 	}
 
@@ -204,6 +205,7 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 			nullable: V::IS_NULLABLE,
 			type_: DataType::Utf8,
 			children: Vec::new(),
+			custom_metadata: Vec::new(),
 		}
 	}
 
