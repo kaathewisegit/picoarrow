@@ -49,11 +49,9 @@ impl<W: Write> FileWriter<W> {
 	{
 		self.writer.write_batch(arrays)?;
 
-		// length + body
-		let metadata_len = 4 + self.writer.metadata_written;
+		let metadata_len = 8 + self.writer.metadata_written;
 		let data_len = self.writer.buf_data.len();
 
-		self.cursor += 4; // continuation
 		self.batches.push(Block::new(
 			self.cursor as i64,
 			metadata_len as i32,
