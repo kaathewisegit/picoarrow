@@ -120,18 +120,26 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 		}
 	}
 
-	pub fn from_vec(_values: Vec<T>) -> Self {
-		todo!("fill out validity");
-		// let mut validity = V::Container::new();
-		// Self { validity, values }
+	pub fn from_vec(values: Vec<T>) -> Self {
+		let mut validity = V::Container::new();
+		let len = values.len();
+		if len > 0 {
+			validity.resize_bits(values.len());
+			validity.set_bits_on(0, len);
+		}
+		Self { validity, values }
 	}
 
 	pub fn is_null(&self, index: usize) -> bool {
 		!self.validity.get(index)
 	}
 
-	pub fn extend_from_slice(&mut self, _other: &[T]) {
-		todo!()
+	pub fn extend_from_slice(&mut self, values: &[T]) {
+		let old_len = self.len();
+		let values_len = values.len();
+		self.values.extend_from_slice(values);
+		self.validity.resize_bits(old_len + values_len);
+		self.validity.set_bits_on(old_len, values_len);
 	}
 }
 

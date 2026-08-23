@@ -5,6 +5,8 @@ pub trait ValidityBuffer {
 
 	fn set_bit_on(&mut self, index: usize);
 
+	fn set_bits_on(&mut self, start: usize, num: usize);
+
 	// TODO: set_bits (and maybe clear_bits?)
 
 	fn get(&self, index: usize) -> bool;
@@ -26,6 +28,8 @@ impl ValidityBuffer for () {
 	fn resize_bits(&mut self, _capacity: usize) {}
 
 	fn set_bit_on(&mut self, _index: usize) {}
+
+	fn set_bits_on(&mut self, _start: usize, _num: usize) {}
 
 	fn get(&self, _index: usize) -> bool {
 		false
@@ -60,6 +64,28 @@ impl ValidityBuffer for Vec<u8> {
 		let bit_offset = index % 8;
 		let mask = 1 << bit_offset;
 		self[byte_index] |= mask;
+	}
+
+	fn set_bits_on(&mut self, start: usize, num: usize) {
+		let byte_start = start / 8;
+		let bit_start = start % 8;
+
+		let byte_end = (start + num) / 8;
+		let bit_end = (start + num) % 8;
+
+		self[byte_start] |= 0b11111111 << bit_start;
+
+		if byte_start == byte_end {
+			return;
+		}
+
+		for byte in &mut self[byte_start + 1..byte_end] {
+			*byte = 0b11111111;
+		}
+
+		if bit_end != 0 {
+			self[byte_end] |= 0b11111111 >> (8 - bit_end);
+		}
 	}
 
 	fn get(&self, index: usize) -> bool {

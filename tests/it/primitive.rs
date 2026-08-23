@@ -6,7 +6,6 @@ use picoarrow::array::{Array, ArrayPrimitive, NonNullable, Nullable};
 macro_rules! test_from_vec {
 	($name:ident, $ty:ty) => {
 		#[test]
-		#[ignore]
 		fn $name() {
 			arbtest(|u| {
 				let len = u.int_in_range(0..=5_000)?;
@@ -38,7 +37,6 @@ macro_rules! test_from_vec {
 }
 
 #[test]
-#[ignore]
 fn from_vec_enumerate_lengths() {
 	let mut v = Vec::new();
 
