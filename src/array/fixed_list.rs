@@ -142,7 +142,6 @@ impl<A: Array> ArrayFixedSizeList<A, Nullable> {
 		}
 
 		self.validity.resize_bits(self.len + 1);
-		self.validity.set_bit_off(self.len);
 		self.len += 1;
 
 		Ok(())

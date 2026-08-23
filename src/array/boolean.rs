@@ -115,9 +115,7 @@ impl ArrayBoolean<Nullable> {
 
 	pub fn push_null(&mut self) {
 		self.validity.resize_bits(self.len + 1);
-		self.validity.set_bit_off(self.len);
 		self.values.resize_bits(self.len + 1);
-		self.values.set_bit_off(self.len);
 		self.len += 1;
 	}
 }

@@ -121,18 +121,18 @@ impl<V: Validity> ArrayBinary<V> {
 
 impl ArrayBinary<Nullable> {
 	pub fn get(&self, index: usize) -> Option<&[u8]> {
-		if self.is_null(index) {
-			None
-		} else {
+		if self.validity.get(index) {
 			Some(self.get_unchecked(index))
+		} else {
+			None
 		}
 	}
 
 	pub fn get_mut(&mut self, index: usize) -> Option<&mut [u8]> {
-		if self.is_null(index) {
-			None
-		} else {
+		if self.validity.get(index) {
 			Some(self.get_mut_unchecked(index))
+		} else {
+			None
 		}
 	}
 }
@@ -265,25 +265,25 @@ impl<V: Validity> ArrayUtf8<V> {
 
 impl ArrayUtf8<Nullable> {
 	pub fn get(&self, index: usize) -> Option<&str> {
-		if self.is_null(index) {
-			None
-		} else {
+		if self.validity.get(index) {
 			Some(self.get_unchecked(index))
+		} else {
+			None
 		}
 	}
 
 	pub fn get_mut(&mut self, index: usize) -> Option<&mut str> {
-		if self.is_null(index) {
-			None
-		} else {
+		if self.validity.get(index) {
 			Some(self.get_mut_unchecked(index))
+		} else {
+			None
 		}
 	}
 
 	pub fn push_null(&mut self) {
 		let len = self.len();
 		self.validity.resize_bits(len + 1);
-		self.validity.set_bit_off(len);
+		todo!()
 		// let start = *self.offsets.last().unwrap();
 	}
 }

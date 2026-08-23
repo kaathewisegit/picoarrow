@@ -152,7 +152,6 @@ impl<T: Primitive> ArrayPrimitive<T, Nullable> {
 	pub fn push_null(&mut self) {
 		let len = self.len();
 		self.validity.resize_bits(len + 1);
-		self.validity.set_bit_off(len);
 		self.values.push(T::default());
 	}
 

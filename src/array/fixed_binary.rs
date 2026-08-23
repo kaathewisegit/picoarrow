@@ -117,25 +117,25 @@ impl<V: Validity> ArrayFixedBinary<V> {
 
 impl ArrayFixedBinary<Nullable> {
 	pub fn get(&self, index: usize) -> Option<&[u8]> {
-		if self.is_null(index) {
-			None
-		} else {
+		if self.validity.get(index) {
 			Some(self.get_unchecked(index))
+		} else {
+			None
 		}
 	}
 
 	pub fn get_mut(&mut self, index: usize) -> Option<&mut [u8]> {
-		if self.is_null(index) {
-			None
-		} else {
+		if self.validity.get(index) {
 			Some(self.get_mut_unchecked(index))
+		} else {
+			None
 		}
 	}
 
 	pub fn push_null(&mut self) {
 		let len = self.len();
+		// TODO: ???
 		self.validity.resize_bits(len + 1);
-		self.validity.set_bit_off(len);
 		self.data.resize(self.data.len() + self.byte_width(), 0);
 	}
 }
