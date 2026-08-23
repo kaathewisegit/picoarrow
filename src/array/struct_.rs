@@ -53,7 +53,7 @@ impl<F: StructFields, V: Validity> Array for ArrayStruct<F, V> {
 
 	fn clear(&mut self) {
 		self.len = 0;
-		self.validity.clear();
+		self.validity.resize_bits(0);
 		self.fields.for_each_mut(&mut |arr| {
 			arr.clear();
 		});
@@ -121,7 +121,7 @@ impl<F: StructFields, V: Validity> ArrayStruct<F, V> {
 		}
 
 		self.validity.resize_bits(self.len + 1);
-		self.validity.set_bit(self.len, true);
+		self.validity.set_bit_on(self.len);
 		self.len += 1;
 
 		Ok(())
@@ -132,7 +132,7 @@ impl<F: StructFields, V: Validity> ArrayStruct<F, V> {
 	}
 
 	pub fn is_null(&self, index: usize) -> bool {
-		self.validity.is_null(index)
+		!self.validity.get(index)
 	}
 }
 
@@ -159,7 +159,7 @@ impl<F: StructFields> ArrayStruct<F, Nullable> {
 		}
 
 		self.validity.resize_bits(self.len + 1);
-		self.validity.set_bit(self.len, false);
+		self.validity.set_bit_off(self.len);
 		self.len += 1;
 
 		Ok(())

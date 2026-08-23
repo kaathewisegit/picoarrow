@@ -50,8 +50,8 @@ impl<V: Validity> Array for ArrayBinary<V> {
 	}
 
 	fn clear(&mut self) {
-		self.validity.clear();
-		self.offsets.resize(1, 0);
+		self.validity.resize_bits(0);
+		self.offsets.truncate(1);
 		self.data.clear();
 	}
 
@@ -99,7 +99,7 @@ impl<V: Validity> ArrayBinary<V> {
 	}
 
 	pub fn is_null(&self, index: usize) -> bool {
-		self.validity.is_null(index)
+		!self.validity.get(index)
 	}
 
 	fn range(&self, index: usize) -> (usize, usize) {
@@ -194,8 +194,8 @@ impl<V: Validity> Array for ArrayUtf8<V> {
 	}
 
 	fn clear(&mut self) {
-		self.validity.clear();
-		self.offsets.resize(1, 0);
+		self.validity.resize_bits(0);
+		self.offsets.truncate(1);
 		self.data.clear();
 	}
 
@@ -243,7 +243,7 @@ impl<V: Validity> ArrayUtf8<V> {
 	}
 
 	pub fn is_null(&self, index: usize) -> bool {
-		self.validity.is_null(index)
+		!self.validity.get(index)
 	}
 
 	fn range(&self, index: usize) -> (usize, usize) {
@@ -278,6 +278,13 @@ impl ArrayUtf8<Nullable> {
 		} else {
 			Some(self.get_mut_unchecked(index))
 		}
+	}
+
+	pub fn push_null(&mut self) {
+		let len = self.len();
+		self.validity.resize_bits(len + 1);
+		self.validity.set_bit_off(len);
+		// let start = *self.offsets.last().unwrap();
 	}
 }
 

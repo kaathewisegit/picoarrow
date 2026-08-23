@@ -48,7 +48,7 @@ impl<V: Validity> Array for ArrayBoolean<V> {
 
 	fn clear(&mut self) {
 		self.len = 0;
-		self.validity.clear();
+		self.validity.resize_bits(0);
 		self.values.clear();
 	}
 
@@ -83,7 +83,7 @@ impl<V: Validity> ArrayBoolean<V> {
 	}
 
 	pub fn is_null(&self, index: usize) -> bool {
-		self.validity.is_null(index)
+		!self.validity.get(index)
 	}
 }
 
@@ -97,25 +97,27 @@ impl ArrayBoolean<Nullable> {
 
 	pub fn push_some(&mut self, value: bool) {
 		self.validity.resize_bits(self.len() + 1);
-		self.validity.set_bit(self.len(), true);
+		self.validity.set_bit_on(self.len());
 		self.values.resize_bits(self.len + 1);
-		self.values.set_bit(self.len, value);
+		if value {
+			self.values.set_bit_on(self.len);
+		}
 		self.len += 1;
 	}
 
 	pub fn get(&self, index: usize) -> Option<bool> {
-		if self.is_null(index) {
-			None
+		if self.validity.get(index) {
+			Some(self.values.get(index))
 		} else {
-			Some(!self.values.is_null(index))
+			None
 		}
 	}
 
 	pub fn push_null(&mut self) {
 		self.validity.resize_bits(self.len + 1);
-		self.validity.set_bit(self.len, false);
+		self.validity.set_bit_off(self.len);
 		self.values.resize_bits(self.len + 1);
-		self.values.set_bit(self.len, false);
+		self.values.set_bit_off(self.len);
 		self.len += 1;
 	}
 }
@@ -123,12 +125,14 @@ impl ArrayBoolean<Nullable> {
 impl ArrayBoolean<NonNullable> {
 	pub fn push(&mut self, value: bool) {
 		self.values.resize_bits(self.len + 1);
-		self.values.set_bit(self.len, value);
+		if value {
+			self.values.set_bit_on(self.len);
+		}
 		self.len += 1;
 	}
 
 	pub fn get(&self, index: usize) -> bool {
-		!self.values.is_null(index)
+		self.values.get(index)
 	}
 }
 

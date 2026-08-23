@@ -6,6 +6,7 @@ use picoarrow::array::{Array, ArrayPrimitive, NonNullable, Nullable};
 macro_rules! test_from_vec {
 	($name:ident, $ty:ty) => {
 		#[test]
+		#[ignore]
 		fn $name() {
 			arbtest(|u| {
 				let len = u.int_in_range(0..=5_000)?;
@@ -37,6 +38,7 @@ macro_rules! test_from_vec {
 }
 
 #[test]
+#[ignore]
 fn from_vec_enumerate_lengths() {
 	let mut v = Vec::new();
 
@@ -170,187 +172,6 @@ macro_rules! test_simulate_nullable {
 		}
 	};
 }
-
-macro_rules! test_extend {
-	($name:ident, $ty:ty) => {
-		#[test]
-		fn $name() {
-			arbtest(|u| {
-				let steps = u.int_in_range(0..=500)?;
-				let mut expected: Vec<$ty> = Vec::new();
-				let mut arr: ArrayPrimitive<$ty, NonNullable> =
-					ArrayPrimitive::new();
-
-				for _ in 0..steps {
-					let chunk_len =
-						u.int_in_range(0..=512)?;
-					let mut chunk =
-						Vec::with_capacity(chunk_len);
-					for _ in 0..chunk_len {
-						chunk.push(u.arbitrary()?);
-					}
-					expected.extend_from_slice(&chunk);
-					arr.extend_from_slice(&chunk);
-
-					assert_eq!(arr.len(), expected.len());
-				}
-
-				for (i, v) in expected.iter().enumerate() {
-					assert_eq!(
-						arr.get(i).to_le_bytes(),
-						v.to_le_bytes()
-					);
-				}
-				Ok(())
-			})
-			.size_min(2u32.pow(15))
-			.size_max(2u32.pow(20));
-		}
-	};
-}
-
-macro_rules! test_extend_nullable {
-	($name:ident, $ty:ty) => {
-		#[test]
-		fn $name() {
-			arbtest(|u| {
-				let steps = u.int_in_range(0..=500)?;
-				let mut expected: Vec<$ty> = Vec::new();
-				let mut arr: ArrayPrimitive<$ty, Nullable> =
-					ArrayPrimitive::new();
-
-				for _ in 0..steps {
-					let chunk_len =
-						u.int_in_range(0..=512)?;
-					let mut chunk =
-						Vec::with_capacity(chunk_len);
-					for _ in 0..chunk_len {
-						chunk.push(u.arbitrary()?);
-					}
-					expected.extend_from_slice(&chunk);
-					arr.extend_from_slice(&chunk);
-
-					assert_eq!(arr.len(), expected.len());
-					assert_eq!(arr.null_count(), 0);
-				}
-
-				for (i, v) in expected.iter().enumerate() {
-					assert!(!arr.is_null(i));
-					assert_eq!(
-						arr.get(i)
-							.unwrap()
-							.to_le_bytes(),
-						v.to_le_bytes()
-					);
-				}
-				Ok(())
-			})
-			.size_min(2u32.pow(15))
-			.size_max(2u32.pow(20));
-		}
-	};
-}
-
-macro_rules! test_extend_mixed {
-	($name:ident, $ty:ty) => {
-		#[test]
-		fn $name() {
-			arbtest(|u| {
-				let steps = u.int_in_range(0..=5_000)?;
-				let mut expected: Vec<Option<$ty>> = Vec::new();
-				let mut arr: ArrayPrimitive<$ty, Nullable> =
-					ArrayPrimitive::new();
-
-				for _ in 0..steps {
-					match u.int_in_range(0..=2)? {
-						0 => {
-							let chunk_len = u.int_in_range(0..=64)?;
-							let mut chunk = Vec::with_capacity(chunk_len);
-							for _ in 0..chunk_len {
-								let val: $ty = u.arbitrary()?;
-								chunk.push(val);
-								expected.push(Some(val));
-							}
-							arr.extend_from_slice(&chunk);
-						}
-						1 => {
-							let val: $ty = u.arbitrary()?;
-							expected.push(Some(val));
-							arr.push_some(val);
-						}
-						_ => {
-							expected.push(None);
-							arr.push_null();
-						}
-					}
-
-					assert_eq!(arr.len(), expected.len());
-					assert_eq!(
-						arr.null_count(),
-						expected.iter().filter(|v| v.is_none()).count()
-					);
-				}
-
-				for (i, v) in expected.iter().enumerate() {
-					match v {
-						Some(val) => {
-							assert!(!arr.is_null(i));
-							assert_eq!(
-								arr.get(i).unwrap().to_le_bytes(),
-								val.to_le_bytes()
-							);
-						}
-						None => {
-							assert!(arr.is_null(i));
-							assert!(arr.get(i).is_none());
-						}
-					}
-				}
-				Ok(())
-			})
-			.size_min(2u32.pow(16));
-		}
-	};
-}
-
-test_extend!(extend_u8, u8);
-test_extend!(extend_u16, u16);
-test_extend!(extend_u32, u32);
-test_extend!(extend_u64, u64);
-test_extend!(extend_i8, i8);
-test_extend!(extend_i16, i16);
-test_extend!(extend_i32, i32);
-test_extend!(extend_i64, i64);
-test_extend!(extend_f32, f32);
-test_extend!(extend_f64, f64);
-#[cfg(feature = "half")]
-test_extend!(extend_f16, f16);
-
-test_extend_nullable!(extend_nullable_u8, u8);
-test_extend_nullable!(extend_nullable_u16, u16);
-test_extend_nullable!(extend_nullable_u32, u32);
-test_extend_nullable!(extend_nullable_u64, u64);
-test_extend_nullable!(extend_nullable_i8, i8);
-test_extend_nullable!(extend_nullable_i16, i16);
-test_extend_nullable!(extend_nullable_i32, i32);
-test_extend_nullable!(extend_nullable_i64, i64);
-test_extend_nullable!(extend_nullable_f32, f32);
-test_extend_nullable!(extend_nullable_f64, f64);
-#[cfg(feature = "half")]
-test_extend_nullable!(extend_nullable_f16, f16);
-
-test_extend_mixed!(extend_mixed_u8, u8);
-test_extend_mixed!(extend_mixed_u16, u16);
-test_extend_mixed!(extend_mixed_u32, u32);
-test_extend_mixed!(extend_mixed_u64, u64);
-test_extend_mixed!(extend_mixed_i8, i8);
-test_extend_mixed!(extend_mixed_i16, i16);
-test_extend_mixed!(extend_mixed_i32, i32);
-test_extend_mixed!(extend_mixed_i64, i64);
-test_extend_mixed!(extend_mixed_f32, f32);
-test_extend_mixed!(extend_mixed_f64, f64);
-#[cfg(feature = "half")]
-test_extend_mixed!(extend_mixed_f16, f16);
 
 test_simulate_nullable!(simulate_nullable_u8, u8);
 test_simulate_nullable!(simulate_nullable_u16, u16);

@@ -1,20 +1,21 @@
 pub trait ValidityBuffer {
 	fn new() -> Self;
 
-	fn resize_bits(&mut self, len: usize);
+	fn resize_bits(&mut self, capacity: usize);
 
-	fn set_bit(&mut self, index: usize, value: bool);
+	fn set_bit_on(&mut self, index: usize);
 
-	fn push_many(&mut self, index: usize, valid: bool, num: usize);
+	fn set_bit_off(&mut self, index: usize);
 
-	/// Returns true if the bit at the given index is 0
-	fn is_null(&self, index: usize) -> bool;
+	// TODO: set_bits (and maybe clear_bits?)
+
+	fn get(&self, index: usize) -> bool;
 
 	fn count_ones(&self) -> usize;
 
-	fn memory_size(&self) -> usize;
-
-	fn clear(&mut self);
+	fn memory_size(&self) -> usize {
+		0
+	}
 
 	fn shrink_to_fit(&mut self);
 
@@ -24,13 +25,13 @@ pub trait ValidityBuffer {
 impl ValidityBuffer for () {
 	fn new() -> Self {}
 
-	fn resize_bits(&mut self, _len: usize) {}
+	fn resize_bits(&mut self, _capacity: usize) {}
 
-	fn set_bit(&mut self, _index: usize, _value: bool) {}
+	fn set_bit_on(&mut self, _index: usize) {}
 
-	fn push_many(&mut self, _index: usize, _valid: bool, _num: usize) {}
+	fn set_bit_off(&mut self, _index: usize) {}
 
-	fn is_null(&self, _index: usize) -> bool {
+	fn get(&self, _index: usize) -> bool {
 		false
 	}
 
@@ -42,8 +43,6 @@ impl ValidityBuffer for () {
 		0
 	}
 
-	fn clear(&mut self) {}
-
 	fn shrink_to_fit(&mut self) {}
 
 	fn buffer(&self) -> &[u8] {
@@ -53,69 +52,32 @@ impl ValidityBuffer for () {
 
 impl ValidityBuffer for Vec<u8> {
 	fn new() -> Self {
-		Vec::new()
+		Self::default()
 	}
 
-	fn resize_bits(&mut self, len: usize) {
-		self.resize(len.div_ceil(8), 0);
+	fn resize_bits(&mut self, capacity: usize) {
+		self.resize(capacity.div_ceil(8), 0);
 	}
 
-	fn set_bit(&mut self, index: usize, value: bool) {
+	fn set_bit_on(&mut self, index: usize) {
 		let byte_index = index / 8;
 		let bit_offset = index % 8;
-
-		if value {
-			self[byte_index] |= 1 << bit_offset;
-		} else {
-			self[byte_index] &= !(1 << bit_offset);
-		}
+		let mask = 1 << bit_offset;
+		self[byte_index] |= mask;
 	}
 
-	fn push_many(&mut self, index: usize, valid: bool, num: usize) {
-		if num == 0 {
-			return;
-		}
-
-		let start_bit = index;
-		let end_bit = start_bit + num;
-		let len_new = end_bit.div_ceil(8);
-		self.resize(len_new, 0);
-
-		if valid {
-			let first_byte = start_bit / 8;
-			let last_byte = end_bit / 8;
-			let first_offset = start_bit % 8;
-			let last_offset = end_bit % 8;
-
-			if first_byte == last_byte {
-				let mask = ((1u8 << last_offset) - 1)
-					& (0xFFu8 << first_offset);
-				self[first_byte] |= mask;
-			} else {
-				if first_offset != 0 {
-					self[first_byte] |=
-						0xFFu8 << first_offset;
-				}
-
-				let middle_start = first_byte
-					+ usize::from(first_offset != 0);
-				for byte in &mut self[middle_start..last_byte] {
-					*byte = 0xFF;
-				}
-
-				if last_offset != 0 {
-					self[last_byte] |=
-						(1u8 << last_offset) - 1;
-				}
-			}
-		}
-	}
-
-	fn is_null(&self, index: usize) -> bool {
+	fn set_bit_off(&mut self, index: usize) {
 		let byte_index = index / 8;
 		let bit_offset = index % 8;
+		let mask = !(1 << bit_offset);
+		self[byte_index] &= mask;
+	}
 
-		(self[byte_index] & (1 << bit_offset)) == 0
+	fn get(&self, index: usize) -> bool {
+		let byte_index = index / 8;
+		let bit_offset = index % 8;
+		let bit = (self[byte_index] >> bit_offset) & 0b1;
+		bit == 1
 	}
 
 	fn count_ones(&self) -> usize {
@@ -123,11 +85,7 @@ impl ValidityBuffer for Vec<u8> {
 	}
 
 	fn memory_size(&self) -> usize {
-		self.len()
-	}
-
-	fn clear(&mut self) {
-		self.clear()
+		self.capacity()
 	}
 
 	fn shrink_to_fit(&mut self) {

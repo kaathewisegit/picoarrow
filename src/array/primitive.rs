@@ -1,4 +1,4 @@
-use bytemuck::{AnyBitPattern, NoUninit, cast_slice, cast_slice_mut};
+use bytemuck::{AnyBitPattern, NoUninit, cast_slice};
 
 use std::ops::{Deref, DerefMut};
 
@@ -87,7 +87,7 @@ impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 	}
 
 	fn clear(&mut self) {
-		self.validity.clear();
+		self.validity.resize_bits(0);
 		self.values.clear();
 	}
 
@@ -120,22 +120,18 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 		}
 	}
 
-	pub fn from_vec(values: Vec<T>) -> Self {
-		let mut validity = V::Container::new();
-		validity.push_many(0, true, values.len());
-		Self { validity, values }
+	pub fn from_vec(_values: Vec<T>) -> Self {
+		todo!("fill out validity");
+		// let mut validity = V::Container::new();
+		// Self { validity, values }
 	}
 
 	pub fn is_null(&self, index: usize) -> bool {
-		self.validity.is_null(index)
+		!self.validity.get(index)
 	}
 
-	pub fn extend_from_slice(&mut self, other: &[T]) {
-		let start = self.values.len();
-		self.validity.push_many(start, true, other.len());
-		self.values.resize_with(start + other.len(), T::default);
-		let dst: &mut [u8] = cast_slice_mut(&mut self.values[start..]);
-		dst.copy_from_slice(cast_slice(other));
+	pub fn extend_from_slice(&mut self, _other: &[T]) {
+		todo!()
 	}
 }
 
@@ -149,30 +145,30 @@ impl<T: Primitive> ArrayPrimitive<T, Nullable> {
 
 	pub fn push_some(&mut self, value: T) {
 		self.validity.resize_bits(self.len() + 1);
-		self.validity.set_bit(self.len(), true);
+		self.validity.set_bit_on(self.len());
 		self.values.push(value);
 	}
 
 	pub fn push_null(&mut self) {
 		let len = self.len();
 		self.validity.resize_bits(len + 1);
-		self.validity.set_bit(len, false);
+		self.validity.set_bit_off(len);
 		self.values.push(T::default());
 	}
 
 	pub fn get(&self, index: usize) -> Option<&T> {
-		if self.is_null(index) {
-			None
-		} else {
+		if self.validity.get(index) {
 			Some(&self.values[index])
+		} else {
+			None
 		}
 	}
 
 	pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
-		if self.is_null(index) {
-			None
-		} else {
+		if self.validity.get(index) {
 			Some(&mut self.values[index])
+		} else {
+			None
 		}
 	}
 }

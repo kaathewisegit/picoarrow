@@ -41,7 +41,7 @@ impl<V: Validity> Array for ArrayFixedBinary<V> {
 	}
 
 	fn clear(&mut self) {
-		self.validity.clear();
+		self.validity.resize_bits(0);
 		self.data.clear();
 	}
 
@@ -83,7 +83,7 @@ impl<V: Validity> ArrayFixedBinary<V> {
 	}
 
 	pub fn is_null(&self, index: usize) -> bool {
-		self.validity.is_null(index)
+		!self.validity.get(index)
 	}
 
 	fn get_unchecked(&self, index: usize) -> &[u8] {
@@ -109,7 +109,7 @@ impl<V: Validity> ArrayFixedBinary<V> {
 			});
 		}
 		self.validity.resize_bits(self.len() + 1);
-		self.validity.set_bit(self.len(), true);
+		self.validity.set_bit_on(self.len());
 		self.data.extend_from_slice(bytes);
 		Ok(())
 	}
@@ -135,7 +135,7 @@ impl ArrayFixedBinary<Nullable> {
 	pub fn push_null(&mut self) {
 		let len = self.len();
 		self.validity.resize_bits(len + 1);
-		self.validity.set_bit(len, false);
+		self.validity.set_bit_off(len);
 		self.data.resize(self.data.len() + self.byte_width(), 0);
 	}
 }
