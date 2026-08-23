@@ -26,7 +26,7 @@ pub use fixed_list::ArrayFixedSizeList;
 pub use primitive::ArrayF16;
 pub use primitive::{
 	ArrayF32, ArrayF64, ArrayI8, ArrayI16, ArrayI32, ArrayI64,
-	ArrayPrimitive, ArrayU8, ArrayU16, ArrayU32, ArrayU64,
+	ArrayPrimitive, ArrayU8, ArrayU16, ArrayU32, ArrayU64, Primitive,
 };
 pub use struct_::{ArrayStruct, StructFields};
 pub use variable::{ArrayBinary, ArrayUtf8};

@@ -1,6 +1,10 @@
 use bytemuck::{AnyBitPattern, NoUninit, cast_slice};
 
-use std::ops::{Deref, DerefMut};
+use std::{
+	borrow::Borrow,
+	fmt::Debug,
+	ops::{Deref, DerefMut},
+};
 
 use super::{Array, NonNullable, Nullable, Validity};
 use crate::{
@@ -12,32 +16,40 @@ use crate::{
 
 pub trait Primitive: NoUninit + AnyBitPattern + Default + seal::Seal {
 	fn data_type() -> DataType;
+
+	type Bytes: Borrow<[u8]> + PartialEq + Debug;
+	fn to_le_bytes(self) -> Self::Bytes;
 }
 
 macro_rules! impl_primitive_int {
-	($type:ty, $bit_width:expr, $is_signed:expr) => {
+	($type:ty, $byte_size:expr, $is_signed:expr) => {
 		impl seal::Seal for $type {}
 		impl Primitive for $type {
 			fn data_type() -> DataType {
 				DataType::Int {
-					bit_width: $bit_width,
+					bit_width: $byte_size * 8,
 					is_signed: $is_signed,
 				}
+			}
+
+			type Bytes = [u8; $byte_size];
+			fn to_le_bytes(self) -> [u8; $byte_size] {
+				self.to_le_bytes()
 			}
 		}
 	};
 }
-impl_primitive_int!(u8, 8, false);
-impl_primitive_int!(u16, 16, false);
-impl_primitive_int!(u32, 32, false);
-impl_primitive_int!(u64, 64, false);
-impl_primitive_int!(i8, 8, true);
-impl_primitive_int!(i16, 16, true);
-impl_primitive_int!(i32, 32, true);
-impl_primitive_int!(i64, 64, true);
+impl_primitive_int!(u8, 1, false);
+impl_primitive_int!(u16, 2, false);
+impl_primitive_int!(u32, 4, false);
+impl_primitive_int!(u64, 8, false);
+impl_primitive_int!(i8, 1, true);
+impl_primitive_int!(i16, 2, true);
+impl_primitive_int!(i32, 4, true);
+impl_primitive_int!(i64, 8, true);
 
 macro_rules! impl_primitive_float {
-	($type:ty, $kind:ident) => {
+	($type:ty, $byte_size:expr, $kind:ident) => {
 		impl seal::Seal for $type {}
 		impl Primitive for $type {
 			fn data_type() -> DataType {
@@ -45,13 +57,18 @@ macro_rules! impl_primitive_float {
 					precision: Precision::$kind,
 				}
 			}
+
+			type Bytes = [u8; $byte_size];
+			fn to_le_bytes(self) -> [u8; $byte_size] {
+				self.to_le_bytes()
+			}
 		}
 	};
 }
-impl_primitive_float!(f32, SINGLE);
-impl_primitive_float!(f64, DOUBLE);
+impl_primitive_float!(f32, 4, SINGLE);
+impl_primitive_float!(f64, 8, DOUBLE);
 #[cfg(feature = "half")]
-impl_primitive_float!(half::f16, HALF);
+impl_primitive_float!(half::f16, 2, HALF);
 
 /// An array of primitive (uniform size, copyable) arrow types
 pub struct ArrayPrimitive<T: Primitive, V: Validity> {
