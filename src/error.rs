@@ -14,10 +14,10 @@ pub enum Error {
 	/// Errors returned by underlying writers used by the IPC serializers
 	WriteFailed(Box<IoError>),
 
-	/// Used by [`FixedSizeList::push`][p] and [`ArrowStruct::push`][s]
+	/// Used by [`FixedSizeList::push`][p] and [`ArrayStruct::push`][s]
 	///
 	/// [p]: super::array::ArrayFixedSizeList::push
-	/// [s]: super::array::ArrowStruct::push
+	/// [s]: super::array::ArrayStruct::push
 	WrongAppendLength {
 		expected: usize,
 		got: usize,

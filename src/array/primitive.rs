@@ -130,6 +130,7 @@ impl<T: Primitive, V: Validity> Array for ArrayPrimitive<T, V> {
 }
 
 impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
+	/// Constructs a new, empty array
 	pub fn new() -> Self {
 		Self {
 			validity: V::Container::new(),
@@ -137,6 +138,9 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 		}
 	}
 
+	/// Constructs a new array with `values`
+	///
+	/// Note that it takes `values` by value, reusing the allocation.
 	pub fn from_vec(values: Vec<T>) -> Self {
 		let mut validity = V::Container::new();
 		let len = values.len();
@@ -147,10 +151,12 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 		Self { validity, values }
 	}
 
+	/// Returns `true` if the item at `index` is null
 	pub fn is_null(&self, index: usize) -> bool {
 		!self.validity.get(index)
 	}
 
+	/// Copies and appends `values` to the end of the array
 	pub fn extend_from_slice(&mut self, values: &[T]) {
 		let old_len = self.len();
 		let values_len = values.len();
