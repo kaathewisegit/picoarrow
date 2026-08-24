@@ -85,19 +85,6 @@ impl<V: Validity> ArrayBinary<V> {
 		}
 	}
 
-	pub fn push(&mut self, bytes: &[u8]) -> Result<()> {
-		let start = *self.offsets.last().unwrap();
-		let len = i32::try_from(bytes.len())
-			.map_err(|_| Error::LengthOverflow)?;
-		let end =
-			start.checked_add(len).ok_or(Error::LengthOverflow)?;
-
-		self.data.extend_from_slice(bytes);
-
-		self.offsets.push(end);
-		Ok(())
-	}
-
 	pub fn is_null(&self, index: usize) -> bool {
 		!self.validity.get(index)
 	}
@@ -117,6 +104,23 @@ impl<V: Validity> ArrayBinary<V> {
 		let (start, end) = self.range(index);
 		&mut self.data[start..end]
 	}
+
+	fn push_value(&mut self, bytes: &[u8]) -> Result<()> {
+		let len = self.len();
+		self.validity.resize_bits(len + 1);
+		self.validity.set_bit_on(len);
+
+		let start = *self.offsets.last().unwrap();
+		let len = i32::try_from(bytes.len())
+			.map_err(|_| Error::LengthOverflow)?;
+		let end =
+			start.checked_add(len).ok_or(Error::LengthOverflow)?;
+
+		self.data.extend_from_slice(bytes);
+
+		self.offsets.push(end);
+		Ok(())
+	}
 }
 
 impl ArrayBinary<Nullable> {
@@ -135,6 +139,27 @@ impl ArrayBinary<Nullable> {
 			None
 		}
 	}
+
+	pub fn push(&mut self, value: Option<&[u8]>) -> Result<()> {
+		if let Some(value) = value {
+			self.push_some(value)
+		} else {
+			self.push_null();
+			Ok(())
+		}
+	}
+
+	pub fn push_some(&mut self, value: &[u8]) -> Result<()> {
+		self.push_value(value)
+	}
+
+	pub fn push_null(&mut self) {
+		let len = self.len();
+		self.validity.resize_bits(len + 1);
+
+		let last = *self.offsets.last().unwrap();
+		self.offsets.push(last);
+	}
 }
 
 impl ArrayBinary<NonNullable> {
@@ -145,6 +170,10 @@ impl ArrayBinary<NonNullable> {
 	pub fn get_mut(&mut self, index: usize) -> &mut [u8] {
 		self.get_mut_unchecked(index)
 	}
+
+	pub fn push(&mut self, value: &[u8]) -> Result<()> {
+		self.push_value(value)
+	}
 }
 
 impl<V: Validity> Default for ArrayBinary<V> {
@@ -153,10 +182,10 @@ impl<V: Validity> Default for ArrayBinary<V> {
 	}
 }
 
-/// An array of string slices
+/// An array of strings
 ///
-/// This is the small version which only supports up to 2GiB of data (combined
-/// length of all items).
+/// This is the small version which only supports up to 2GiB of strings
+/// combined (the total length of all values).
 pub struct ArrayUtf8<V: Validity> {
 	validity: V::Container,
 	offsets: Vec<i32>,
@@ -229,19 +258,6 @@ impl<V: Validity> ArrayUtf8<V> {
 		}
 	}
 
-	pub fn push(&mut self, value: &str) -> Result<()> {
-		let start = *self.offsets.last().unwrap();
-		let len = i32::try_from(value.len())
-			.map_err(|_| Error::LengthOverflow)?;
-		let end =
-			start.checked_add(len).ok_or(Error::LengthOverflow)?;
-
-		self.data.push_str(value);
-
-		self.offsets.push(end);
-		Ok(())
-	}
-
 	pub fn is_null(&self, index: usize) -> bool {
 		!self.validity.get(index)
 	}
@@ -260,6 +276,23 @@ impl<V: Validity> ArrayUtf8<V> {
 	fn get_mut_unchecked(&mut self, index: usize) -> &mut str {
 		let (start, end) = self.range(index);
 		&mut self.data[start..end]
+	}
+
+	fn push_value(&mut self, value: &str) -> Result<()> {
+		let len = self.len();
+		self.validity.resize_bits(len + 1);
+		self.validity.set_bit_on(len);
+
+		let start = *self.offsets.last().unwrap();
+		let len = i32::try_from(value.len())
+			.map_err(|_| Error::LengthOverflow)?;
+		let end =
+			start.checked_add(len).ok_or(Error::LengthOverflow)?;
+
+		self.data.push_str(value);
+		self.offsets.push(end);
+
+		Ok(())
 	}
 }
 
@@ -280,11 +313,25 @@ impl ArrayUtf8<Nullable> {
 		}
 	}
 
+	pub fn push(&mut self, value: Option<&str>) -> Result<()> {
+		if let Some(value) = value {
+			self.push_some(value)
+		} else {
+			self.push_null();
+			Ok(())
+		}
+	}
+
+	pub fn push_some(&mut self, value: &str) -> Result<()> {
+		self.push_value(value)
+	}
+
 	pub fn push_null(&mut self) {
 		let len = self.len();
 		self.validity.resize_bits(len + 1);
-		todo!()
-		// let start = *self.offsets.last().unwrap();
+
+		let last = *self.offsets.last().unwrap();
+		self.offsets.push(last);
 	}
 }
 
@@ -295,6 +342,10 @@ impl ArrayUtf8<NonNullable> {
 
 	pub fn get_mut(&mut self, index: usize) -> &mut str {
 		self.get_mut_unchecked(index)
+	}
+
+	pub fn push(&mut self, value: &str) -> Result<()> {
+		self.push_value(value)
 	}
 }
 
