@@ -4,18 +4,14 @@
 
 - `array/`
 
-  - `mod.rs` defines the common array trait and re-exports all of the
-    concrete array implementations.
+  - `mod.rs` defines the common array trait and re-exports all of the concrete array implementations.
   - `variable` defines binary and UTF-8 arrays.
   - `fixed_list` defines `FixedSizeList`.
   - `fixed_binary` defines `FixedSizeBinary`.
-  - `primitive` defines `ArrayPrimitive`, which wraps all uniform-sized
-    copyable Arrow types which don't have any array-associated data
-    (like decimals or time units).
+  - `primitive` defines `ArrayPrimitive`, which wraps all uniform-sized copyable Arrow types which don't have any array-associated data (like decimals or time units).
   - `boolean` defines boolean array, as it uses a bitmap for storage.
 
-- `bitmap` defines a `ValidityBuffer` trait which is used to implement
-  validity bitmaps.
+- `bitmap` defines a `ValidityBuffer` trait which is used to implement validity bitmaps.
 
 - `fb/` contains generated Flatbuffers code for the IPC encoding.
 
@@ -27,19 +23,11 @@
 
   - `mod.rs` re-exports writers and defines `Compression`.
   - `stream` implements the stream writer
-  - `file` implements the file writer, which is a thin wrapper over the
-    stream writer with record batch offset tracking.
+  - `file` implements the file writer, which is a thin wrapper over the stream writer with record batch offset tracking.
 
 
 ## Tests
 
-All tests live in a single binary defined in `tests/it/main.rs` to speed
-up compilation times.
+All tests live in a single binary defined in `tests/it/main.rs` to speed up compilation times.
 
-Where possible tests use the `arbitrary` crate together with `arbtest`
-to randomize the input data.
-
-- `primitive` tests the functionality of `ArrayPrimitive`
-
-- `roundtrip` tests IPC encoding by encoding with `picoarrow`, decoding
-  with `arrow`, and comparing the results.
+Where possible tests use the `arbitrary` crate together with `arbtest` to randomize the input data.
