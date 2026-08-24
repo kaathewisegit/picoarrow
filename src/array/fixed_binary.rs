@@ -134,7 +134,6 @@ impl ArrayFixedBinary<Nullable> {
 
 	pub fn push_null(&mut self) {
 		let len = self.len();
-		// TODO: ???
 		self.validity.resize_bits(len + 1);
 		self.data.resize(self.data.len() + self.byte_width(), 0);
 	}
