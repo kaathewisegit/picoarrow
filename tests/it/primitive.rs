@@ -176,6 +176,12 @@ fn extend_iter<'a, T: Primitive + Arbitrary<'a> + PartialEq + Debug>(
 }
 create_test!(extend_iter);
 
+#[test]
+fn extend_emtpy() {
+	let mut arr = ArrayPrimitive::<u32, Nullable>::new();
+	arr.extend_from_slice(&[]);
+}
+
 fn extend_iter_nullable<
 	'a,
 	T: Primitive + Arbitrary<'a> + PartialEq + Debug,

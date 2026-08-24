@@ -65,6 +65,10 @@ impl ValidityBuffer for Vec<u8> {
 	}
 
 	fn set_bits_on(&mut self, start: usize, num: usize) {
+		if num == 0 {
+			return;
+		}
+
 		let byte_start = start / 8;
 		let bit_start = start % 8;
 

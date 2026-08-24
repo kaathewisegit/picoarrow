@@ -144,10 +144,8 @@ impl<T: Primitive, V: Validity> ArrayPrimitive<T, V> {
 	pub fn from_vec(values: Vec<T>) -> Self {
 		let mut validity = V::Container::new();
 		let len = values.len();
-		if len > 0 {
-			validity.resize_bits(values.len());
-			validity.set_bits_on(0, len);
-		}
+		validity.resize_bits(values.len());
+		validity.set_bits_on(0, len);
 		Self { validity, values }
 	}
 
