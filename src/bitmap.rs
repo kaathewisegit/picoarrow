@@ -7,8 +7,6 @@ pub trait ValidityBuffer {
 
 	fn set_bits_on(&mut self, start: usize, num: usize);
 
-	// TODO: set_bits (and maybe clear_bits?)
-
 	fn get(&self, index: usize) -> bool;
 
 	fn count_ones(&self) -> usize;

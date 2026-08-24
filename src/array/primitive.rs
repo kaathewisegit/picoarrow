@@ -270,12 +270,13 @@ impl<T: Primitive> Extend<T> for ArrayPrimitive<T, NonNullable> {
 ///
 /// It is restricted by the API of [`ArrayPrimitive`] and treats each byte as an
 /// individual item.  Use [`ArrayBinary`][b] for keeping track of
-/// variable-length slices or `FixedSizeBinary` (TODO) for arbitrary values of
+/// variable-length slices or [`ArrayFixedBinary`][fb] for arbitrary values of
 /// the same size[^uuid].
 ///
 /// [^uuid]: That's how Arrow [defines UUIDs][uuid], for example.
 ///
 /// [b]: super::ArrayBinary
+/// [fb]: super::ArrayFixedBinary
 /// [uuid]: https://arrow.apache.org/docs/format/Columnar.html#:~:text=Arrow%20specifies,messages
 pub type ArrayU8<V> = ArrayPrimitive<u8, V>;
 /// An array of [`u16`]'s
