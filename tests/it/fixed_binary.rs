@@ -1,8 +1,11 @@
 use arbtest::arbtest;
-use picoarrow::array::{Array, ArrayFixedBinary, NonNullable, Nullable};
+use picoarrow::{
+	Error,
+	array::{Array, ArrayFixedBinary, NonNullable, Nullable},
+};
 
 #[test]
-fn simulate_fixed_binary() {
+fn simulate_nonnullable() {
 	arbtest(|u| {
 		let byte_width = u.int_in_range(1..=100)?;
 		let steps = u.int_in_range(0..=5_000)?;
@@ -31,7 +34,7 @@ fn simulate_fixed_binary() {
 }
 
 #[test]
-fn simulate_fixed_binary_nullable() {
+fn simulate_nullable() {
 	arbtest(|u| {
 		let byte_width = u.int_in_range(1..=100)?;
 		let steps = u.int_in_range(0..=5_000)?;
@@ -46,9 +49,17 @@ fn simulate_fixed_binary_nullable() {
 			} else if u.ratio(1, 4)? {
 				expected.push(None);
 				arr.push_null();
-			} else {
+			} else if u.ratio(1, 4)? {
 				let val = u.bytes(byte_width as usize)?;
 				expected.push(Some(val));
+				arr.push_some(val).unwrap();
+			} else {
+				let val = if u.ratio(1, 4)? {
+					None
+				} else {
+					Some(u.bytes(byte_width as usize)?)
+				};
+				expected.push(val);
 				arr.push(val).unwrap();
 			}
 
@@ -60,4 +71,17 @@ fn simulate_fixed_binary_nullable() {
 		Ok(())
 	})
 	.size_min(2u32.pow(20));
+}
+
+#[test]
+fn push_err() {
+	let mut arr = ArrayFixedBinary::<NonNullable>::new(10);
+	arr.push(&[0; 10]).unwrap();
+	assert!(matches!(
+		arr.push(&[]).unwrap_err(),
+		Error::WrongBinaryAppendLength {
+			expected: 10,
+			got: 0
+		}
+	));
 }

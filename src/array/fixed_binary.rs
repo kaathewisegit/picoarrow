@@ -97,19 +97,17 @@ impl<V: Validity> ArrayFixedBinary<V> {
 		&mut self.data[start..end]
 	}
 
-	/// Append a fixed-size binary value
-	///
-	/// Returns [`Error::WrongBinaryAppendLength`] if the length of
-	/// `bytes` does not match the element size of the array.
-	pub fn push(&mut self, bytes: &[u8]) -> Result<()> {
+	fn push_value(&mut self, bytes: &[u8]) -> Result<()> {
+		let len = self.len();
+		self.validity.resize_bits(len + 1);
+		self.validity.set_bit_on(len);
+
 		if bytes.len() != self.byte_width() {
 			return Err(Error::WrongBinaryAppendLength {
 				expected: self.byte_width,
 				got: bytes.len(),
 			});
 		}
-		self.validity.resize_bits(self.len() + 1);
-		self.validity.set_bit_on(self.len());
 		self.data.extend_from_slice(bytes);
 		Ok(())
 	}
@@ -132,6 +130,23 @@ impl ArrayFixedBinary<Nullable> {
 		}
 	}
 
+	/// Append a fixed-size binary value
+	///
+	/// Returns [`Error::WrongBinaryAppendLength`] if the length of
+	/// `bytes` does not match the element size of the array.
+	pub fn push(&mut self, bytes: Option<&[u8]>) -> Result<()> {
+		if let Some(bytes) = bytes {
+			self.push_some(bytes)
+		} else {
+			self.push_null();
+			Ok(())
+		}
+	}
+
+	pub fn push_some(&mut self, bytes: &[u8]) -> Result<()> {
+		self.push_value(bytes)
+	}
+
 	pub fn push_null(&mut self) {
 		let len = self.len();
 		self.validity.resize_bits(len + 1);
@@ -146,5 +161,9 @@ impl ArrayFixedBinary<NonNullable> {
 
 	pub fn get_mut(&mut self, index: usize) -> &mut [u8] {
 		self.get_mut_unchecked(index)
+	}
+
+	pub fn push(&mut self, bytes: &[u8]) -> Result<()> {
+		self.push_value(bytes)
 	}
 }

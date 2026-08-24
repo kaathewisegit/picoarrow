@@ -675,7 +675,7 @@ impl AnyArray {
 				for val in data {
 					match val {
 						Some(bytes) => {
-							arr.push(bytes)
+							arr.push(Some(bytes))
 								.unwrap();
 						}
 						None => arr.push_null(),
