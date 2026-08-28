@@ -1,8 +1,9 @@
 use bytemuck::{AnyBitPattern, NoUninit, cast_slice};
 
 use std::{
+	any::type_name,
 	borrow::Borrow,
-	fmt::Debug,
+	fmt::{self, Debug},
 	ops::{Deref, DerefMut},
 };
 
@@ -14,7 +15,9 @@ use crate::{
 	seal,
 };
 
-pub trait Primitive: NoUninit + AnyBitPattern + Default + seal::Seal {
+pub trait Primitive:
+	NoUninit + AnyBitPattern + Default + Debug + seal::Seal
+{
 	fn data_type() -> DataType;
 
 	type Bytes: Borrow<[u8]> + PartialEq + Debug;
@@ -238,6 +241,28 @@ impl<T: Primitive> DerefMut for ArrayPrimitive<T, NonNullable> {
 impl<T: Primitive> From<Vec<T>> for ArrayPrimitive<T, NonNullable> {
 	fn from(values: Vec<T>) -> Self {
 		Self::from_vec(values)
+	}
+}
+
+impl<T: Primitive> Debug for ArrayPrimitive<T, NonNullable> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let name = format!(
+			"ArrayPrimitive<{}, NonNullable>",
+			type_name::<T>()
+		);
+		f.debug_struct(&name).field("values", &self.values).finish()
+	}
+}
+impl<T: Primitive> Debug for ArrayPrimitive<T, Nullable> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let name = format!(
+			"ArrayPrimitive<{}, Nullable>",
+			type_name::<T>()
+		);
+		f.debug_struct(&name)
+			.field("validity", &self.validity)
+			.field("values", &self.values)
+			.finish()
 	}
 }
 

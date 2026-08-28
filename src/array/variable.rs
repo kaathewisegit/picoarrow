@@ -1,5 +1,7 @@
 use bytemuck::cast_slice;
 
+use std::fmt::{self, Debug};
+
 use super::{Array, NonNullable, Nullable, Validity};
 use crate::{
 	Error,
@@ -352,5 +354,16 @@ impl ArrayUtf8<NonNullable> {
 impl<V: Validity> Default for ArrayUtf8<V> {
 	fn default() -> Self {
 		Self::new()
+	}
+}
+
+impl Debug for ArrayUtf8<Nullable> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.write_str("ArrayUtf8<Nullable> { ... }")
+	}
+}
+impl Debug for ArrayUtf8<NonNullable> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.write_str("ArrayUtf8<NonNullable> { ... }")
 	}
 }
