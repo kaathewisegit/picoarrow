@@ -230,3 +230,10 @@ fn extend_iter_nullable<
 	Ok(())
 }
 create_test!(extend_iter_nullable);
+
+#[test]
+fn set_on() {
+	let mut arr = ArrayPrimitive::<i32, Nullable>::from_vec(vec![1]);
+	arr.push_null();
+	assert_eq!(arr.get(1), None);
+}

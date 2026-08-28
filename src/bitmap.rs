@@ -75,14 +75,11 @@ impl ValidityBuffer for Vec<u8> {
 		let byte_end = (start + num) / 8;
 		let bit_end = (start + num) % 8;
 
-		self[byte_start] |= 0b11111111 << bit_start;
-
-		if byte_start == byte_end {
-			return;
-		}
-
-		for byte in &mut self[byte_start + 1..byte_end] {
-			*byte = 0b11111111;
+		if byte_end > byte_start {
+			self[byte_start] |= 0b11111111 << bit_start;
+			for byte in &mut self[byte_start + 1..byte_end] {
+				*byte = 0b11111111;
+			}
 		}
 
 		if bit_end != 0 {
