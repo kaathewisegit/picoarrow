@@ -122,3 +122,49 @@ fn simulate_utf8_nullable() {
 	})
 	.size_min(2u32.pow(20));
 }
+
+#[test]
+fn simulate_compare_utf8_nullable() {
+	arbtest(|u| {
+		let mut arr_a = ArrayUtf8::<Nullable>::new();
+		let mut arr_b = ArrayUtf8::<Nullable>::new();
+		for s in u.arbitrary_iter::<Option<&str>>()? {
+			arr_a.push(s?).unwrap();
+			arr_b.push(s?).unwrap();
+		}
+		assert_eq!(arr_a, arr_b);
+		Ok(())
+	});
+}
+
+#[test]
+fn compare_utf8_nullable() {
+	let mut arr_a = ArrayUtf8::<Nullable>::new();
+	arr_a.push_some("hel").unwrap();
+	arr_a.push_some("lo").unwrap();
+	for _ in 0..7 {
+		arr_a.push_null();
+	}
+
+	let mut arr_b = ArrayUtf8::<Nullable>::new();
+	arr_b.push_some("hel").unwrap();
+	arr_b.push_some("lo").unwrap();
+	for _ in 0..6 {
+		arr_a.push_null();
+	}
+
+	assert_ne!(arr_a, arr_b);
+}
+
+#[test]
+fn compare_utf8_nonnullable() {
+	let mut arr_a = ArrayUtf8::<NonNullable>::new();
+	arr_a.push("hel").unwrap();
+	arr_a.push("lo").unwrap();
+
+	let mut arr_b = ArrayUtf8::<NonNullable>::new();
+	arr_b.push("hell").unwrap();
+	arr_b.push("o").unwrap();
+
+	assert_ne!(arr_a, arr_b);
+}

@@ -123,10 +123,19 @@ impl<V: Validity> ArrayBinary<V> {
 		self.offsets.push(end);
 		Ok(())
 	}
+
+	#[track_caller]
+	fn check_index(&self, index: usize) {
+		let len = self.len();
+		if index >= self.len() {
+			panic!("index {index} is out of bounds {len}");
+		}
+	}
 }
 
 impl ArrayBinary<Nullable> {
 	pub fn get(&self, index: usize) -> Option<&[u8]> {
+		self.check_index(index);
 		if self.validity.get(index) {
 			Some(self.get_unchecked(index))
 		} else {
@@ -135,6 +144,7 @@ impl ArrayBinary<Nullable> {
 	}
 
 	pub fn get_mut(&mut self, index: usize) -> Option<&mut [u8]> {
+		self.check_index(index);
 		if self.validity.get(index) {
 			Some(self.get_mut_unchecked(index))
 		} else {
@@ -166,10 +176,12 @@ impl ArrayBinary<Nullable> {
 
 impl ArrayBinary<NonNullable> {
 	pub fn get(&self, index: usize) -> &[u8] {
+		self.check_index(index);
 		self.get_unchecked(index)
 	}
 
 	pub fn get_mut(&mut self, index: usize) -> &mut [u8] {
+		self.check_index(index);
 		self.get_mut_unchecked(index)
 	}
 
@@ -183,6 +195,26 @@ impl<V: Validity> Default for ArrayBinary<V> {
 		Self::new()
 	}
 }
+
+impl PartialEq for ArrayBinary<NonNullable> {
+	fn eq(&self, other: &Self) -> bool {
+		self.offsets == other.offsets && self.data == other.data
+	}
+}
+impl PartialEq for ArrayBinary<Nullable> {
+	fn eq(&self, other: &Self) -> bool {
+		if self.len() != other.len() {
+			return false;
+		}
+		for i in 0..self.len() {
+			if self.get(i) != other.get(i) {
+				return false;
+			}
+		}
+		true
+	}
+}
+impl<V: Validity> Eq for ArrayBinary<V> where ArrayBinary<V>: PartialEq {}
 
 /// An array of strings
 ///
@@ -296,10 +328,19 @@ impl<V: Validity> ArrayUtf8<V> {
 
 		Ok(())
 	}
+
+	#[track_caller]
+	fn check_index(&self, index: usize) {
+		let len = self.len();
+		if index >= self.len() {
+			panic!("index {index} is out of bounds {len}");
+		}
+	}
 }
 
 impl ArrayUtf8<Nullable> {
 	pub fn get(&self, index: usize) -> Option<&str> {
+		self.check_index(index);
 		if self.validity.get(index) {
 			Some(self.get_unchecked(index))
 		} else {
@@ -308,6 +349,7 @@ impl ArrayUtf8<Nullable> {
 	}
 
 	pub fn get_mut(&mut self, index: usize) -> Option<&mut str> {
+		self.check_index(index);
 		if self.validity.get(index) {
 			Some(self.get_mut_unchecked(index))
 		} else {
@@ -339,10 +381,12 @@ impl ArrayUtf8<Nullable> {
 
 impl ArrayUtf8<NonNullable> {
 	pub fn get(&self, index: usize) -> &str {
+		self.check_index(index);
 		self.get_unchecked(index)
 	}
 
 	pub fn get_mut(&mut self, index: usize) -> &mut str {
+		self.check_index(index);
 		self.get_mut_unchecked(index)
 	}
 
@@ -367,3 +411,24 @@ impl Debug for ArrayUtf8<NonNullable> {
 		f.write_str("ArrayUtf8<NonNullable> { ... }")
 	}
 }
+
+impl PartialEq for ArrayUtf8<NonNullable> {
+	fn eq(&self, other: &Self) -> bool {
+		self.offsets == other.offsets && self.data == other.data
+	}
+}
+impl PartialEq for ArrayUtf8<Nullable> {
+	fn eq(&self, other: &Self) -> bool {
+		if self.len() != other.len() {
+			return false;
+		}
+		for i in 0..self.len() {
+			println!("i = {i}");
+			if self.get(i) != other.get(i) {
+				return false;
+			}
+		}
+		true
+	}
+}
+impl<V: Validity> Eq for ArrayUtf8<V> where ArrayUtf8<V>: PartialEq {}
