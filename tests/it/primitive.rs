@@ -38,7 +38,7 @@ macro_rules! create_test {
 	};
 }
 
-fn from_vec<'a, T: Primitive + Arbitrary<'a> + PartialEq + Debug>(
+fn from_vec<'a, T: Primitive + Arbitrary<'a> + Debug>(
 	u: &mut Unstructured<'a>,
 ) -> Result<()> {
 	let len = u.int_in_range(0..=5_000)?;
@@ -79,7 +79,7 @@ fn from_vec_enumerate_lengths() {
 	}
 }
 
-fn simulate<'a, T: Primitive + Arbitrary<'a> + PartialEq + Debug>(
+fn simulate<'a, T: Primitive + Arbitrary<'a> + Debug>(
 	u: &mut Unstructured<'a>,
 ) -> Result<()> {
 	let steps = u.int_in_range(0..=5_000)?;
@@ -105,7 +105,7 @@ fn simulate<'a, T: Primitive + Arbitrary<'a> + PartialEq + Debug>(
 }
 create_test!(simulate);
 
-fn simulate_nullable<'a, T: Primitive + Arbitrary<'a> + PartialEq + Debug>(
+fn simulate_nullable<'a, T: Primitive + Arbitrary<'a> + Debug>(
 	u: &mut Unstructured<'a>,
 ) -> Result<()> {
 	let steps = u.int_in_range(0..=5_000)?;
@@ -150,7 +150,7 @@ fn simulate_nullable<'a, T: Primitive + Arbitrary<'a> + PartialEq + Debug>(
 }
 create_test!(simulate_nullable);
 
-fn extend_iter<'a, T: Primitive + Arbitrary<'a> + PartialEq + Debug>(
+fn extend_iter<'a, T: Primitive + Arbitrary<'a> + Debug>(
 	u: &mut Unstructured<'a>,
 ) -> Result<()> {
 	let steps = u.int_in_range(0..=500)?;
@@ -182,10 +182,7 @@ fn extend_emtpy() {
 	arr.extend_from_slice(&[]);
 }
 
-fn extend_iter_nullable<
-	'a,
-	T: Primitive + Arbitrary<'a> + PartialEq + Debug,
->(
+fn extend_iter_nullable<'a, T: Primitive + Arbitrary<'a> + Debug>(
 	u: &mut Unstructured<'a>,
 ) -> Result<()> {
 	let steps = u.int_in_range(0..=500)?;
@@ -237,3 +234,22 @@ fn set_on() {
 	arr.push_null();
 	assert_eq!(arr.get(1), None);
 }
+
+fn eq_nonnullable<'a, T: Primitive + Arbitrary<'a> + Debug>(
+	u: &mut Unstructured<'a>,
+) -> Result<()> {
+	let vec_a = u.arbitrary::<Vec<T>>()?;
+	let vec_b = u.arbitrary::<Vec<T>>()?;
+
+	let mut arr_a = ArrayPrimitive::<T, NonNullable>::new();
+	for item in &vec_a {
+		arr_a.push(*item);
+	}
+
+	let arr_b = ArrayPrimitive::<T, NonNullable>::from_vec(vec_b.clone());
+
+	assert_eq!(arr_a == arr_b, vec_a == vec_b);
+
+	Ok(())
+}
+create_test!(eq_nonnullable);

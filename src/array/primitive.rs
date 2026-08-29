@@ -16,7 +16,7 @@ use crate::{
 };
 
 pub trait Primitive:
-	NoUninit + AnyBitPattern + Default + Debug + seal::Seal
+	NoUninit + AnyBitPattern + Default + Debug + PartialEq + seal::Seal
 {
 	fn data_type() -> DataType;
 
@@ -286,6 +286,28 @@ impl<T: Primitive> Extend<T> for ArrayPrimitive<T, NonNullable> {
 		for item in iter {
 			self.push(item);
 		}
+	}
+}
+
+impl<T: Primitive> PartialEq for ArrayPrimitive<T, NonNullable> {
+	fn eq(&self, other: &Self) -> bool {
+		self.values == other.values
+	}
+}
+
+impl<T: Primitive> PartialEq for ArrayPrimitive<T, Nullable> {
+	fn eq(&self, other: &Self) -> bool {
+		// This is a pretty poor implementation.  It's serial and does
+		// redundant range checks.  A smarter implementation would do
+		// simd checks on both values and nullability mask bytes, but
+		// that would require a lot of abstractions and effort for a
+		// pretty rare operation.
+		for i in 0..self.len() {
+			if self.get(i) != other.get(i) {
+				return false;
+			}
+		}
+		true
 	}
 }
 
