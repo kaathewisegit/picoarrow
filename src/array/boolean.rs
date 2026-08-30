@@ -144,7 +144,12 @@ impl<V: Validity> Default for ArrayBoolean<V> {
 
 impl PartialEq for ArrayBoolean<NonNullable> {
 	fn eq(&self, other: &Self) -> bool {
-		self.values == other.values
+		self.len == other.len
+			&& ValidityBuffer::compare(
+				&self.values,
+				&other.values,
+				self.len(),
+			)
 	}
 }
 impl PartialEq for ArrayBoolean<Nullable> {

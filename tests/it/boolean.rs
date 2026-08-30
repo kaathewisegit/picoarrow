@@ -131,7 +131,7 @@ fn clone() {
 }
 
 #[test]
-fn eq_edgecase() {
+fn eq_panic_edgecase() {
 	let mut a = ArrayBoolean::<Nullable>::new();
 	for _ in 0..9 {
 		a.push_some(false);
@@ -143,4 +143,20 @@ fn eq_edgecase() {
 	}
 
 	assert!(!(a == b));
+}
+
+#[test]
+fn eq_valid_edgecase() {
+	let mut a = ArrayBoolean::<NonNullable>::new();
+	a.push(true);
+	a.push(false);
+	a.push(true);
+
+	let mut b = ArrayBoolean::<NonNullable>::new();
+	b.push(true);
+	b.push(false);
+	b.push(true);
+	b.push(false);
+
+	assert_ne!(a, b);
 }

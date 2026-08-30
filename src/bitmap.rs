@@ -18,6 +18,8 @@ pub trait ValidityBuffer: Clone {
 	fn shrink_to_fit(&mut self);
 
 	fn buffer(&self) -> &[u8];
+
+	fn compare(a: &Self, b: &Self, len: usize) -> bool;
 }
 
 impl ValidityBuffer for () {
@@ -45,6 +47,10 @@ impl ValidityBuffer for () {
 
 	fn buffer(&self) -> &[u8] {
 		&[]
+	}
+
+	fn compare(_: &Self, _: &Self, _: usize) -> bool {
+		true
 	}
 }
 
@@ -108,5 +114,13 @@ impl ValidityBuffer for Vec<u8> {
 
 	fn buffer(&self) -> &[u8] {
 		self
+	}
+
+	fn compare(a: &Self, b: &Self, len: usize) -> bool {
+		if len == 0 {
+			return true;
+		}
+		let byte_len = len.div_ceil(8);
+		a[..byte_len] == b[..byte_len]
 	}
 }
