@@ -129,3 +129,18 @@ fn clone() {
 
 	assert_eq!(arr, arr.clone());
 }
+
+#[test]
+fn eq_edgecase() {
+	let mut a = ArrayBoolean::<Nullable>::new();
+	for _ in 0..9 {
+		a.push_some(false);
+	}
+
+	let mut b = ArrayBoolean::<Nullable>::new();
+	for _ in 0..8 {
+		b.push_some(false);
+	}
+
+	assert!(!(a == b));
+}

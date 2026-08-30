@@ -297,6 +297,9 @@ impl<T: Primitive> PartialEq for ArrayPrimitive<T, NonNullable> {
 
 impl<T: Primitive> PartialEq for ArrayPrimitive<T, Nullable> {
 	fn eq(&self, other: &Self) -> bool {
+		if self.len() != other.len() {
+			return false;
+		}
 		// This is a pretty poor implementation.  It's serial and does
 		// redundant range checks.  A smarter implementation would do
 		// simd checks on both values and nullability mask bytes, but

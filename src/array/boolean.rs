@@ -149,6 +149,9 @@ impl PartialEq for ArrayBoolean<NonNullable> {
 }
 impl PartialEq for ArrayBoolean<Nullable> {
 	fn eq(&self, other: &Self) -> bool {
+		if self.len() != other.len() {
+			return false;
+		}
 		// See `ArrayPrimitive` for implementation notes
 		for i in 0..self.len() {
 			if self.get(i) != other.get(i) {
