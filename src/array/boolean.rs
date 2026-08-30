@@ -1,5 +1,7 @@
 use bytemuck::cast_slice;
 
+use std::fmt::{self, Debug};
+
 use super::{Array, NonNullable, Validity};
 use crate::{
 	array::Nullable,
@@ -137,5 +139,51 @@ impl ArrayBoolean<NonNullable> {
 impl<V: Validity> Default for ArrayBoolean<V> {
 	fn default() -> Self {
 		Self::new()
+	}
+}
+
+impl PartialEq for ArrayBoolean<NonNullable> {
+	fn eq(&self, other: &Self) -> bool {
+		self.values == other.values
+	}
+}
+impl PartialEq for ArrayBoolean<Nullable> {
+	fn eq(&self, other: &Self) -> bool {
+		// See `ArrayPrimitive` for implementation notes
+		for i in 0..self.len() {
+			if self.get(i) != other.get(i) {
+				return false;
+			}
+		}
+		true
+	}
+}
+impl Eq for ArrayBoolean<NonNullable> {}
+impl Eq for ArrayBoolean<Nullable> {}
+
+impl Debug for ArrayBoolean<Nullable> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("ArrayBoolean<Nullable>")
+			.field("validity", &self.validity)
+			.field("values", &self.values)
+			.finish()
+	}
+}
+impl Debug for ArrayBoolean<NonNullable> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("ArrayBoolean<NonNullable>")
+			.field("validity", &self.validity)
+			.field("values", &self.values)
+			.finish()
+	}
+}
+
+impl<V: Validity> Clone for ArrayBoolean<V> {
+	fn clone(&self) -> Self {
+		Self {
+			len: self.len,
+			validity: self.validity.clone(),
+			values: self.values.clone(),
+		}
 	}
 }

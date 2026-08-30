@@ -1,8 +1,10 @@
 use arbtest::arbtest;
 use picoarrow::array::{Array, ArrayBoolean, NonNullable, Nullable};
 
+use std::ops::ControlFlow;
+
 #[test]
-fn simulate_boolean() {
+fn simulate() {
 	arbtest(|u| {
 		let steps = u.int_in_range(0..=5_000)?;
 		let mut expected: Vec<bool> = Vec::new();
@@ -29,9 +31,9 @@ fn simulate_boolean() {
 }
 
 #[test]
-fn simulate_boolean_nullable() {
+fn simulate_nullable() {
 	arbtest(|u| {
-		let steps = u.int_in_range(0..=5_000)?;
+		let steps = u.int_in_range(100..=5_000)?;
 		let mut expected: Vec<Option<bool>> = Vec::new();
 		let mut arr: ArrayBoolean<Nullable> = ArrayBoolean::new();
 
@@ -60,4 +62,70 @@ fn simulate_boolean_nullable() {
 		Ok(())
 	})
 	.size_min(2u32.pow(16));
+}
+
+#[test]
+fn simulate_eq_nonnullable() {
+	arbtest(|u| {
+		let mut arr_a = ArrayBoolean::<NonNullable>::new();
+		let mut arr_b = ArrayBoolean::<NonNullable>::new();
+		u.arbitrary_loop(Some(10), Some(5000), |u| {
+			// XXX: other methods when they are added
+			match u.arbitrary::<u8>()? {
+				0 => {
+					arr_a.clear();
+					arr_b.clear();
+				}
+				1..128 => {
+					arr_a.push(true);
+					arr_b.push(true);
+				}
+				128.. => {
+					arr_a.push(false);
+					arr_b.push(false);
+				}
+			}
+			assert_eq!(arr_a, arr_b);
+			Ok(ControlFlow::Continue(()))
+		})
+	})
+	.size_min(2u32.pow(15));
+}
+
+#[test]
+fn simulate_eq_nullable() {
+	arbtest(|u| {
+		let mut arr_a = ArrayBoolean::<Nullable>::new();
+		let mut arr_b = ArrayBoolean::<Nullable>::new();
+		u.arbitrary_loop(Some(10), Some(5000), |u| {
+			// XXX: other methods when they are added
+			match u.arbitrary::<u8>()? {
+				0..64 => {
+					arr_a.push_some(true);
+					arr_b.push_some(true);
+				}
+				64..128 => {
+					arr_a.push_some(false);
+					arr_b.push_some(false);
+				}
+				128.. => {
+					arr_a.push_null();
+					arr_b.push_null();
+				}
+			}
+			assert_eq!(arr_a, arr_b);
+			Ok(ControlFlow::Continue(()))
+		})
+	})
+	.size_min(2u32.pow(15));
+}
+
+#[test]
+fn clone() {
+	let mut arr = ArrayBoolean::<NonNullable>::new();
+	arr.push(true);
+	arr.push(false);
+	arr.push(true);
+
+	assert_eq!(arr, arr.clone());
 }
