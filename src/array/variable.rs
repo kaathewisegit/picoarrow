@@ -196,6 +196,17 @@ impl<V: Validity> Default for ArrayBinary<V> {
 	}
 }
 
+impl Debug for ArrayBinary<Nullable> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.write_str("ArrayBinary<Nullable> { ... }")
+	}
+}
+impl Debug for ArrayBinary<NonNullable> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.write_str("ArrayBinary<NonNullable> { ... }")
+	}
+}
+
 impl PartialEq for ArrayBinary<NonNullable> {
 	fn eq(&self, other: &Self) -> bool {
 		self.offsets == other.offsets && self.data == other.data
@@ -215,6 +226,16 @@ impl PartialEq for ArrayBinary<Nullable> {
 	}
 }
 impl<V: Validity> Eq for ArrayBinary<V> where ArrayBinary<V>: PartialEq {}
+
+impl<V: Validity> Clone for ArrayBinary<V> {
+	fn clone(&self) -> Self {
+		Self {
+			validity: self.validity.clone(),
+			offsets: self.offsets.clone(),
+			data: self.data.clone(),
+		}
+	}
+}
 
 /// An array of strings
 ///
@@ -432,3 +453,13 @@ impl PartialEq for ArrayUtf8<Nullable> {
 	}
 }
 impl<V: Validity> Eq for ArrayUtf8<V> where ArrayUtf8<V>: PartialEq {}
+
+impl<V: Validity> Clone for ArrayUtf8<V> {
+	fn clone(&self) -> Self {
+		Self {
+			validity: self.validity.clone(),
+			offsets: self.offsets.clone(),
+			data: self.data.clone(),
+		}
+	}
+}

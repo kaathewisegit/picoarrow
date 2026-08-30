@@ -168,3 +168,35 @@ fn compare_utf8_nonnullable() {
 
 	assert_ne!(arr_a, arr_b);
 }
+
+#[test]
+fn clone_binary() {
+	let mut arr = ArrayBinary::<NonNullable>::new();
+	arr.push(b"hello").unwrap();
+	arr.push(b"there").unwrap();
+
+	assert_eq!(arr, arr.clone());
+
+	let mut arr = ArrayBinary::<Nullable>::new();
+	arr.push_some(b"hello").unwrap();
+	arr.push_null();
+	arr.push_some(b"there").unwrap();
+
+	assert_eq!(arr, arr.clone());
+}
+
+#[test]
+fn clone_utf8() {
+	let mut arr = ArrayUtf8::<NonNullable>::new();
+	arr.push("hello").unwrap();
+	arr.push("there").unwrap();
+
+	assert_eq!(arr, arr.clone());
+
+	let mut arr = ArrayUtf8::<Nullable>::new();
+	arr.push_some("hello").unwrap();
+	arr.push_null();
+	arr.push_some("there").unwrap();
+
+	assert_eq!(arr, arr.clone());
+}

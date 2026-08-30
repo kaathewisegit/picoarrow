@@ -1,4 +1,4 @@
-pub trait ValidityBuffer {
+pub trait ValidityBuffer: Clone {
 	fn new() -> Self;
 
 	fn resize_bits(&mut self, capacity: usize);

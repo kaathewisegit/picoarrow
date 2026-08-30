@@ -253,3 +253,18 @@ fn eq_nonnullable<'a, T: Primitive + Arbitrary<'a> + Debug>(
 	Ok(())
 }
 create_test!(eq_nonnullable);
+
+fn clone<'a, T: Primitive + Arbitrary<'a> + Debug>(
+	u: &mut Unstructured<'a>,
+) -> Result<()> {
+	let vec = u.arbitrary::<Vec<T>>()?;
+	let vec_cloned = vec.clone();
+
+	let arr: ArrayPrimitive<T, _> = vec.clone().into();
+	let arr_cloned = arr.clone();
+
+	assert_eq!(vec == vec_cloned, arr == arr_cloned);
+
+	Ok(())
+}
+create_test!(clone);

@@ -311,6 +311,15 @@ impl<T: Primitive> PartialEq for ArrayPrimitive<T, Nullable> {
 	}
 }
 
+impl<T: Primitive, V: Validity> Clone for ArrayPrimitive<T, V> {
+	fn clone(&self) -> Self {
+		Self {
+			validity: self.validity.clone(),
+			values: self.values.clone(),
+		}
+	}
+}
+
 /// An array of [`u8`]'s.
 ///
 /// It is restricted by the API of [`ArrayPrimitive`] and treats each byte as an
