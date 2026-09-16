@@ -444,7 +444,6 @@ impl PartialEq for ArrayUtf8<Nullable> {
 			return false;
 		}
 		for i in 0..self.len() {
-			println!("i = {i}");
 			if self.get(i) != other.get(i) {
 				return false;
 			}
