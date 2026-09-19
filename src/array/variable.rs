@@ -87,6 +87,16 @@ impl<V: Validity> ArrayBinary<V> {
 		}
 	}
 
+	pub fn with_capacity(capacity: usize) -> Self {
+		let mut offsets = Vec::with_capacity(capacity + 1);
+		offsets.push(0);
+		Self {
+			validity: V::Container::with_capacity(capacity),
+			offsets,
+			data: Vec::with_capacity(capacity),
+		}
+	}
+
 	pub fn is_null(&self, index: usize) -> bool {
 		!self.validity.get(index)
 	}
@@ -310,6 +320,16 @@ impl<V: Validity> ArrayUtf8<V> {
 			validity: V::Container::new(),
 			offsets: vec![0],
 			data: String::new(),
+		}
+	}
+
+	pub fn with_capacity(capacity: usize) -> Self {
+		let mut offsets = Vec::with_capacity(capacity + 1);
+		offsets.push(0);
+		Self {
+			validity: V::Container::with_capacity(capacity),
+			offsets,
+			data: String::with_capacity(capacity),
 		}
 	}
 

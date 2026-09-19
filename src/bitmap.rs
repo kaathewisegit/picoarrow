@@ -1,6 +1,8 @@
 pub trait ValidityBuffer: Clone {
 	fn new() -> Self;
 
+	fn with_capacity(capacity: usize) -> Self;
+
 	fn resize_bits(&mut self, capacity: usize);
 
 	fn set_bit_on(&mut self, index: usize);
@@ -24,6 +26,8 @@ pub trait ValidityBuffer: Clone {
 
 impl ValidityBuffer for () {
 	fn new() -> Self {}
+
+	fn with_capacity(_capacity: usize) -> Self {}
 
 	fn resize_bits(&mut self, _capacity: usize) {}
 
@@ -57,6 +61,10 @@ impl ValidityBuffer for () {
 impl ValidityBuffer for Vec<u8> {
 	fn new() -> Self {
 		Self::default()
+	}
+
+	fn with_capacity(capacity: usize) -> Self {
+		Vec::with_capacity(capacity)
 	}
 
 	fn resize_bits(&mut self, capacity: usize) {
