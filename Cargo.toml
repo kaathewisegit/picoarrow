@@ -25,10 +25,10 @@ half = ["dep:half"]
 [dev-dependencies]
 arbitrary = { version = "1.4.2" }
 arbtest = "0.3.2"
-arrow-array = "59.2.0"
-arrow-ipc = { version = "59.2.0", features = ["zstd", "lz4"] }
-arrow-schema = "59.2.0"
-half = { version = "2.7.1", features = ["arbitrary"] }
+arrow-array = "60.0"
+arrow-ipc = { version = "60.0", features = ["zstd", "lz4"] }
+arrow-schema = "60.0"
+half = { version = "2.7", features = ["arbitrary"] }
 pastey = "0.2.3"
 
 [lints.rust]
