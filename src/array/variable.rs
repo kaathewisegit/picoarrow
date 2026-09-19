@@ -182,6 +182,15 @@ impl ArrayBinary<Nullable> {
 		let last = *self.offsets.last().unwrap();
 		self.offsets.push(last);
 	}
+
+	pub fn push_nulls(&mut self, count: usize) {
+		let len = self.len();
+		let new_len = len + count;
+		self.validity.resize_bits(new_len);
+
+		let last = *self.offsets.last().unwrap();
+		self.offsets.resize(new_len + 1, last);
+	}
 }
 
 impl ArrayBinary<NonNullable> {
@@ -417,6 +426,15 @@ impl ArrayUtf8<Nullable> {
 
 		let last = *self.offsets.last().unwrap();
 		self.offsets.push(last);
+	}
+
+	pub fn push_nulls(&mut self, count: usize) {
+		let len = self.len();
+		let new_len = len + count;
+		self.validity.resize_bits(new_len);
+
+		let last = *self.offsets.last().unwrap();
+		self.offsets.resize(new_len + 1, last);
 	}
 }
 

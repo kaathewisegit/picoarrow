@@ -36,20 +36,36 @@ fn simulate_binary_nullable() {
 		let mut arr: ArrayBinary<Nullable> = ArrayBinary::new();
 
 		for _ in 0..steps {
-			if u.ratio(1, 100)? {
-				expected.clear();
-				arr.clear();
-			} else if u.ratio(1, 4)? {
-				expected.push(None);
-				arr.push_null();
-			} else if u.ratio(1, 4)? {
-				let val: &[u8] = u.arbitrary()?;
-				expected.push(Some(val));
-				arr.push_some(val).unwrap();
-			} else {
-				let val: Option<&[u8]> = u.arbitrary()?;
-				expected.push(val);
-				arr.push(val).unwrap();
+			match u.int_in_range(0..=100)? {
+				0..25 => {
+					expected.push(None);
+					arr.push_null();
+				}
+				25..50 => {
+					let val: &[u8] = u.arbitrary()?;
+					expected.push(Some(val));
+					arr.push_some(val).unwrap();
+				}
+				50 => {
+					expected.clear();
+					arr.clear();
+				}
+				51..55 => {
+					let count =
+						u.int_in_range(0usize..=100)?;
+					expected.resize(
+						expected.len() + count,
+						None,
+					);
+					arr.push_nulls(count);
+				}
+				55.. => {
+					let val: Option<&[u8]> =
+						u.arbitrary()?;
+					expected.push(val);
+					arr.push(val).unwrap();
+				}
+				_ => unreachable!(),
 			}
 
 			assert_eq!(arr.len(), expected.len());
@@ -97,20 +113,36 @@ fn simulate_utf8_nullable() {
 		let mut arr: ArrayUtf8<Nullable> = ArrayUtf8::new();
 
 		for _ in 0..steps {
-			if u.ratio(1, 100)? {
-				expected.clear();
-				arr.clear();
-			} else if u.ratio(1, 4)? {
-				expected.push(None);
-				arr.push_null();
-			} else if u.ratio(1, 4)? {
-				let val: &str = u.arbitrary()?;
-				expected.push(Some(val));
-				arr.push_some(val).unwrap();
-			} else {
-				let val: Option<&str> = u.arbitrary()?;
-				expected.push(val);
-				arr.push(val).unwrap();
+			match u.int_in_range(0..=100)? {
+				0..25 => {
+					expected.push(None);
+					arr.push_null();
+				}
+				25..50 => {
+					let val: &str = u.arbitrary()?;
+					expected.push(Some(val));
+					arr.push_some(val).unwrap();
+				}
+				50 => {
+					expected.clear();
+					arr.clear();
+				}
+				51..55 => {
+					let count =
+						u.int_in_range(0usize..=100)?;
+					expected.resize(
+						expected.len() + count,
+						None,
+					);
+					arr.push_nulls(count);
+				}
+				55.. => {
+					let val: Option<&str> =
+						u.arbitrary()?;
+					expected.push(val);
+					arr.push(val).unwrap();
+				}
+				_ => unreachable!(),
 			}
 
 			assert_eq!(arr.len(), expected.len());
