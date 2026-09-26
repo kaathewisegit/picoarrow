@@ -232,3 +232,37 @@ fn clone_utf8() {
 
 	assert_eq!(arr, arr.clone());
 }
+
+#[test]
+fn utf8_iter_nonnullable() {
+	arbtest(|u| {
+		let vec = u.arbitrary::<Vec<String>>()?;
+		let mut arr = ArrayUtf8::<NonNullable>::new();
+		for s in &vec {
+			arr.push(s).unwrap();
+		}
+
+		for (i, item) in arr.iter().enumerate() {
+			assert_eq!(item, vec[i]);
+		}
+
+		Ok(())
+	});
+}
+
+#[test]
+fn utf8_iter_nullable() {
+	arbtest(|u| {
+		let vec = u.arbitrary::<Vec<Option<String>>>()?;
+		let mut arr = ArrayUtf8::<Nullable>::new();
+		for s in &vec {
+			arr.push(s.as_deref()).unwrap();
+		}
+
+		for (i, item) in arr.iter().enumerate() {
+			assert_eq!(item, vec[i].as_deref());
+		}
+
+		Ok(())
+	});
+}

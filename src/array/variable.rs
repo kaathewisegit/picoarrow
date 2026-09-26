@@ -508,6 +508,12 @@ pub struct ArrayUtf8Iter<'a, V: Validity> {
 
 macro_rules! impl_array_iter {
 	($validity:ty, $item:ty) => {
+		impl ArrayUtf8<$validity> {
+			pub fn iter(&self) -> ArrayUtf8Iter<'_, $validity> {
+				self.into_iter()
+			}
+		}
+
 		impl<'a> Iterator for ArrayUtf8Iter<'a, $validity> {
 			type Item = $item;
 
