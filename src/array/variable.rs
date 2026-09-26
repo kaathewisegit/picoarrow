@@ -500,3 +500,51 @@ impl<V: Validity> Clone for ArrayUtf8<V> {
 		}
 	}
 }
+
+pub struct ArrayUtf8Iter<'a, V: Validity> {
+	array: &'a ArrayUtf8<V>,
+	index: usize,
+}
+
+macro_rules! impl_array_iter {
+	($validity:ty, $item:ty) => {
+		impl<'a> Iterator for ArrayUtf8Iter<'a, $validity> {
+			type Item = $item;
+
+			fn next(&mut self) -> Option<Self::Item> {
+				if self.index < self.array.len() {
+					let item = self.array.get(self.index);
+					self.index += 1;
+					Some(item)
+				} else {
+					None
+				}
+			}
+
+			fn size_hint(&self) -> (usize, Option<usize>) {
+				let remaining = self.array.len() - self.index;
+				(remaining, Some(remaining))
+			}
+		}
+
+		impl<'a> ExactSizeIterator for ArrayUtf8Iter<'a, $validity> {}
+	};
+}
+
+impl_array_iter!(NonNullable, &'a str);
+impl_array_iter!(Nullable, Option<&'a str>);
+
+impl<'a, V: Validity> IntoIterator for &'a ArrayUtf8<V>
+where
+	ArrayUtf8Iter<'a, V>: Iterator,
+{
+	type Item = <ArrayUtf8Iter<'a, V> as Iterator>::Item;
+	type IntoIter = ArrayUtf8Iter<'a, V>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		ArrayUtf8Iter {
+			array: self,
+			index: 0,
+		}
+	}
+}
