@@ -266,3 +266,20 @@ fn utf8_iter_nullable() {
 		Ok(())
 	});
 }
+
+#[test]
+#[should_panic]
+fn utf8_indexing_check_empty() {
+	ArrayUtf8::<NonNullable>::new().get(0);
+}
+
+#[test]
+#[should_panic]
+fn utf8_indexing_check() {
+	let mut arr = ArrayUtf8::<NonNullable>::new();
+	arr.push("a").unwrap();
+	arr.push("b").unwrap();
+	arr.push("c").unwrap();
+
+	arr.get(3);
+}
