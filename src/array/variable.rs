@@ -101,20 +101,37 @@ impl<V: Validity> ArrayBinary<V> {
 		!self.validity.get(index)
 	}
 
-	fn range(&self, index: usize) -> (usize, usize) {
-		let start = self.offsets[index] as usize;
-		let end = self.offsets[index + 1] as usize;
-		(start, end)
+	/// # Safety
+	///
+	/// `index` must be less than the length of the array.
+	unsafe fn range(&self, index: usize) -> (usize, usize) {
+		debug_assert!(index < self.len());
+		unsafe {
+			(
+				*self.offsets.get_unchecked(index) as usize,
+				*self.offsets.get_unchecked(index + 1) as usize,
+			)
+		}
 	}
 
-	fn get_unchecked(&self, index: usize) -> &[u8] {
-		let (start, end) = self.range(index);
-		&self.data[start..end]
+	/// # Safety
+	///
+	/// `index` must be less than the length of the array.
+	unsafe fn get_unchecked(&self, index: usize) -> &[u8] {
+		// SAFETY: `index` is within range by the invariant
+		let (start, end) = unsafe { self.range(index) };
+		// SAFETY: we got `start`/`end` from the array, they are valid
+		unsafe { self.data.get_unchecked(start..end) }
 	}
 
-	fn get_mut_unchecked(&mut self, index: usize) -> &mut [u8] {
-		let (start, end) = self.range(index);
-		&mut self.data[start..end]
+	/// # Safety
+	///
+	/// See [`get_unchecked`][Self::get_unchecked].
+	unsafe fn get_mut_unchecked(&mut self, index: usize) -> &mut [u8] {
+		// SAFETY: `index` is within range by the invariant
+		let (start, end) = unsafe { self.range(index) };
+		// SAFETY: we got `start`/`end` from the array, they are valid
+		unsafe { self.data.get_unchecked_mut(start..end) }
 	}
 
 	fn push_value(&mut self, bytes: &[u8]) -> Result<()> {
@@ -147,7 +164,8 @@ impl ArrayBinary<Nullable> {
 	pub fn get(&self, index: usize) -> Option<&[u8]> {
 		self.check_index(index);
 		if self.validity.get(index) {
-			Some(self.get_unchecked(index))
+			// SAFETY: index checked above
+			Some(unsafe { self.get_unchecked(index) })
 		} else {
 			None
 		}
@@ -156,7 +174,8 @@ impl ArrayBinary<Nullable> {
 	pub fn get_mut(&mut self, index: usize) -> Option<&mut [u8]> {
 		self.check_index(index);
 		if self.validity.get(index) {
-			Some(self.get_mut_unchecked(index))
+			// SAFETY: index checked above
+			Some(unsafe { self.get_mut_unchecked(index) })
 		} else {
 			None
 		}
@@ -196,12 +215,14 @@ impl ArrayBinary<Nullable> {
 impl ArrayBinary<NonNullable> {
 	pub fn get(&self, index: usize) -> &[u8] {
 		self.check_index(index);
-		self.get_unchecked(index)
+		// SAFETY: index checked above
+		unsafe { self.get_unchecked(index) }
 	}
 
 	pub fn get_mut(&mut self, index: usize) -> &mut [u8] {
 		self.check_index(index);
-		self.get_mut_unchecked(index)
+		// SAFETY: index checked above
+		unsafe { self.get_mut_unchecked(index) }
 	}
 
 	pub fn push(&mut self, value: &[u8]) -> Result<()> {
@@ -346,20 +367,37 @@ impl<V: Validity> ArrayUtf8<V> {
 		!self.validity.get(index)
 	}
 
-	fn range(&self, index: usize) -> (usize, usize) {
-		let start = self.offsets[index] as usize;
-		let end = self.offsets[index + 1] as usize;
-		(start, end)
+	/// # Safety
+	///
+	/// `index` must be less than the length of the array.
+	unsafe fn range(&self, index: usize) -> (usize, usize) {
+		debug_assert!(index < self.len());
+		unsafe {
+			(
+				*self.offsets.get_unchecked(index) as usize,
+				*self.offsets.get_unchecked(index + 1) as usize,
+			)
+		}
 	}
 
-	fn get_unchecked(&self, index: usize) -> &str {
-		let (start, end) = self.range(index);
-		&self.data[start..end]
+	/// # Safety
+	///
+	/// `index` must be less than the length of the array.
+	unsafe fn get_unchecked(&self, index: usize) -> &str {
+		// SAFETY: `index` is within range by the invariant
+		let (start, end) = unsafe { self.range(index) };
+		// SAFETY: we got `start`/`end` from the array, they are valid
+		unsafe { self.data.get_unchecked(start..end) }
 	}
 
-	fn get_mut_unchecked(&mut self, index: usize) -> &mut str {
-		let (start, end) = self.range(index);
-		&mut self.data[start..end]
+	/// # Safety
+	///
+	/// See [`get_unchecked`][Self::get_unchecked].
+	unsafe fn get_mut_unchecked(&mut self, index: usize) -> &mut str {
+		// SAFETY: `index` is within range by the invariant
+		let (start, end) = unsafe { self.range(index) };
+		// SAFETY: we got `start`/`end` from the array, they are valid
+		unsafe { self.data.get_unchecked_mut(start..end) }
 	}
 
 	fn push_value(&mut self, value: &str) -> Result<()> {
@@ -392,7 +430,8 @@ impl ArrayUtf8<Nullable> {
 	pub fn get(&self, index: usize) -> Option<&str> {
 		self.check_index(index);
 		if self.validity.get(index) {
-			Some(self.get_unchecked(index))
+			// SAFETY: index checked above
+			Some(unsafe { self.get_unchecked(index) })
 		} else {
 			None
 		}
@@ -401,7 +440,8 @@ impl ArrayUtf8<Nullable> {
 	pub fn get_mut(&mut self, index: usize) -> Option<&mut str> {
 		self.check_index(index);
 		if self.validity.get(index) {
-			Some(self.get_mut_unchecked(index))
+			// SAFETY: index checked above
+			Some(unsafe { self.get_mut_unchecked(index) })
 		} else {
 			None
 		}
@@ -441,12 +481,14 @@ impl ArrayUtf8<Nullable> {
 impl ArrayUtf8<NonNullable> {
 	pub fn get(&self, index: usize) -> &str {
 		self.check_index(index);
-		self.get_unchecked(index)
+		// SAFETY: index checked above
+		unsafe { self.get_unchecked(index) }
 	}
 
 	pub fn get_mut(&mut self, index: usize) -> &mut str {
 		self.check_index(index);
-		self.get_mut_unchecked(index)
+		// SAFETY: index checked above
+		unsafe { self.get_mut_unchecked(index) }
 	}
 
 	pub fn push(&mut self, value: &str) -> Result<()> {

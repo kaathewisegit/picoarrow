@@ -34,6 +34,9 @@ pastey = "0.2.3"
 [lints.rust]
 warnings = "deny"
 
+[profile.test]
+opt-level = 2
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = [
