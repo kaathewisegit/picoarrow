@@ -1,6 +1,6 @@
-use std::{error, fmt, io::Error as IoError};
+use std::{error, fmt, io::Error as IoError, str::Utf8Error};
 
-use crate::schema::Field;
+use crate::schema::{DataType, Field};
 
 /// The Result type of `picoarrow`'s functions and methods
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -14,14 +14,81 @@ pub enum Error {
 	/// Errors returned by underlying writers used by the IPC serializers
 	WriteFailed(Box<IoError>),
 
+	/// Errors returned by underlying readers used by the IPC deserializers
+	ReadFailed(Box<IoError>),
+
+	/// A flatbuffer in the stream could not be parsed
+	InvalidFlatbuffer(Box<flatbuffers::InvalidFlatbuffer>),
+
+	/// A message's header is not the type it is labeled as
+	InvalidMessage,
+
+	/// An IPC schema message's header could not be read
+	InvalidSchemaMessage,
+
+	/// A record batch message's header could not be read
+	InvalidRecordBatchMessage,
+
+	/// The first message in an IPC stream is not a schema
+	FirstMessageNotSchema,
+
+	/// An IPC schema message appears in the middle of the stream
+	UnexpectedSchemaMessage,
+
+	/// The IPC stream contains a message of an unsupported type
+	UnsupportedMessageType,
+
+	/// The IPC stream's body uses an unsupported compression codec
+	UnsupportedCompression,
+
+	/// IPC data contains a data type not representable by picoarrow
+	UnsupportedDataType(Box<DataType>),
+
+	/// The IPC stream ended before a schema message was found
+	MissingSchema,
+
+	/// The stream's continuation marker was malformed
+	InvalidContinuationMarker,
+
+	/// The record batch refers to fewer buffers than the schema requires
+	MissingBuffer,
+
+	/// One of the record batch's buffers lies outside the message body
+	InvalidBuffer,
+
+	/// A variable-length array's offset buffer is too small
+	InvalidOffsetBuffer,
+
+	/// A variable-length array's offsets are out of order or out of bounds
+	InvalidOffsets,
+
+	/// A primitive array's values buffer is not a multiple of the element
+	/// size
+	InvalidValuesBuffer(Box<(usize, usize)>),
+
+	/// An IPC record batch's node count doesn't match the schema
+	FieldNodeCountMismatch(Box<(usize, usize)>),
+
+	/// An IPC record batch's null count is larger than the batch length
+	InvalidNullCount,
+
+	/// A non-nullable field in IPC contains null values
+	NullsInNonNullableField,
+
+	/// When reading IPC array's values didn't match its reported length
+	ArrayLengthMismatch,
+
+	/// Length or offset from the IPC cannot be represented as `usize`
+	InvalidLengthOrOffset,
+
+	/// A UTF-8 column in IPC contains invalid UTF-8
+	InvalidUtf8(Box<Utf8Error>),
+
 	/// Used by [`FixedSizeList::push`][p] and [`ArrayStruct::push`][s]
 	///
 	/// [p]: super::array::ArrayFixedSizeList::push
 	/// [s]: super::array::ArrayStruct::push
-	WrongAppendLength {
-		expected: usize,
-		got: usize,
-	},
+	WrongAppendLength(Box<(usize, usize)>),
 
 	WrongBinaryAppendLength {
 		expected: i32,
@@ -45,7 +112,7 @@ pub enum Error {
 
 	/// Returned by IPC serializers when arrays in a batch don't match the
 	/// schema.
-	BatchSchemaMismatch(Box<(Field, Field)>),
+	BatchSchemaMismatch(Box<(String, Field)>),
 }
 
 impl fmt::Display for Error {
@@ -54,7 +121,97 @@ impl fmt::Display for Error {
 			Error::WriteFailed(e) => {
 				writeln!(f, "underlying writer failed: {e}")
 			}
-			Error::WrongAppendLength { expected, got } => {
+			Error::ReadFailed(e) => {
+				writeln!(f, "underlying reader failed: {e}")
+			}
+			Error::InvalidFlatbuffer(e) => {
+				writeln!(f, "invalid flatbuffer: {e}")
+			}
+			Error::InvalidMessage => {
+				writeln!(f, "invalid message header")
+			}
+			Error::InvalidSchemaMessage => {
+				writeln!(f, "invalid schema message header")
+			}
+			Error::InvalidRecordBatchMessage => {
+				writeln!(
+					f,
+					"invalid record batch message header"
+				)
+			}
+			Error::FirstMessageNotSchema => {
+				writeln!(
+					f,
+					"the first message in the stream is not a schema"
+				)
+			}
+			Error::UnexpectedSchemaMessage => {
+				writeln!(
+					f,
+					"unexpected schema message in stream"
+				)
+			}
+			Error::UnsupportedMessageType => {
+				writeln!(f, "unsupported IPC message type")
+			}
+			Error::UnsupportedCompression => {
+				writeln!(f, "unsupported body compression")
+			}
+			Error::UnsupportedDataType(type_) => {
+				writeln!(f, "unsupported data type: {type_:?}")
+			}
+			Error::MissingSchema => {
+				writeln!(
+					f,
+					"the stream ended before a schema was found"
+				)
+			}
+			Error::InvalidContinuationMarker => {
+				writeln!(f, "invalid IPC continuation marker")
+			}
+			Error::MissingBuffer => {
+				writeln!(f, "missing IPC buffer")
+			}
+			Error::InvalidBuffer => {
+				writeln!(f, "invalid IPC buffer")
+			}
+			Error::InvalidOffsetBuffer => {
+				writeln!(f, "invalid IPC offset buffer")
+			}
+			Error::InvalidOffsets => {
+				writeln!(f, "invalid IPC offsets")
+			}
+			Error::InvalidValuesBuffer(boxed) => {
+				let (element_size, buffer_len) = **boxed;
+				writeln!(
+					f,
+					"invalid IPC values buffer: buffer length {buffer_len} is not a multiple of the {element_size} byte element size"
+				)
+			}
+			Error::FieldNodeCountMismatch(boxed) => {
+				let (expected, got) = **boxed;
+				writeln!(
+					f,
+					"expected {expected} field nodes, got {got}"
+				)
+			}
+			Error::InvalidNullCount => {
+				writeln!(f, "invalid null count")
+			}
+			Error::NullsInNonNullableField => {
+				writeln!(f, "non-nullable field contains nulls")
+			}
+			Error::ArrayLengthMismatch => {
+				writeln!(f, "array length mismatch")
+			}
+			Error::InvalidLengthOrOffset => {
+				writeln!(f, "invalid IPC length or offset")
+			}
+			Error::InvalidUtf8(e) => {
+				writeln!(f, "invalid UTF-8: {e}")
+			}
+			Error::WrongAppendLength(boxed) => {
+				let (expected, got) = **boxed;
 				writeln!(
 					f,
 					"Wrong append length: expected {expected}, got {got}"
@@ -85,7 +242,7 @@ impl fmt::Display for Error {
 				let (expected, got) = boxed.as_ref();
 				writeln!(
 					f,
-					"Expected field {expected:?}, got {got:?}"
+					"Expected field named {expected:?}, got {got:?}"
 				)
 			}
 			Error::BatchDifferentLengths(boxed) => {
@@ -103,6 +260,9 @@ impl error::Error for Error {
 	fn source(&self) -> Option<&(dyn error::Error + 'static)> {
 		match self {
 			Error::WriteFailed(err) => Some(err),
+			Error::ReadFailed(err) => Some(err),
+			Error::InvalidFlatbuffer(err) => Some(err),
+			Error::InvalidUtf8(err) => Some(err),
 			_ => None,
 		}
 	}

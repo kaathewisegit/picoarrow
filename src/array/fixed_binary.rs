@@ -7,6 +7,7 @@ use crate::{
 };
 
 /// An array of fixed-size binary values
+#[derive(Debug, PartialEq)]
 pub struct ArrayFixedBinary<V: Validity> {
 	validity: V::Container,
 	data: Vec<u8>,

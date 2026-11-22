@@ -114,10 +114,9 @@ impl<F: StructFields, V: Validity> ArrayStruct<F, V> {
 		});
 
 		if !ok {
-			return Err(Error::WrongAppendLength {
-				expected,
-				got: self.len,
-			});
+			return Err(Error::WrongAppendLength(Box::new((
+				expected, self.len,
+			))));
 		}
 
 		self.validity.resize_bits(self.len + 1);
@@ -152,10 +151,9 @@ impl<F: StructFields> ArrayStruct<F, Nullable> {
 		});
 
 		if !ok {
-			return Err(Error::WrongAppendLength {
-				expected,
-				got: self.len,
-			});
+			return Err(Error::WrongAppendLength(Box::new((
+				expected, self.len,
+			))));
 		}
 
 		self.validity.resize_bits(self.len + 1);

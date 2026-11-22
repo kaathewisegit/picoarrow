@@ -1,6 +1,7 @@
 mod boolean;
 mod fixed_binary;
 mod fixed_list;
+mod ipc_deserialize;
 mod ipc_metadata;
 mod ipc_serialize;
 mod primitive;

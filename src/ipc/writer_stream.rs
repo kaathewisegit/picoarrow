@@ -209,11 +209,12 @@ fn write_batch<'a, 'fbb>(
 			});
 		};
 
-		if *field != array.make_field(&field.name) {
-			return Err(Error::BatchSchemaMismatch(
-				(field.clone(), array.make_field(&field.name))
-					.into(),
-			));
+		let field_from_array = array.make_field(&field.name);
+		if *field != field_from_array {
+			return Err(Error::BatchSchemaMismatch(Box::new((
+				field.name.clone(),
+				field_from_array,
+			))));
 		}
 
 		if let Some(num_rows) = num_rows {

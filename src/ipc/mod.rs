@@ -14,9 +14,11 @@
 //! [s]: https://arrow.apache.org/docs/format/Columnar.html#ipc-streaming-format
 //! [f]: https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format
 
+mod reader_stream;
 mod writer_file;
 mod writer_stream;
 
+pub use reader_stream::{Column, StreamReader};
 pub use writer_file::FileWriter;
 pub use writer_stream::StreamWriter;
 

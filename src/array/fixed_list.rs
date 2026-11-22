@@ -103,10 +103,10 @@ impl<A: Array, V: Validity> ArrayFixedSizeList<A, V> {
 		let after = self.child.len();
 
 		if after - before != self.size as usize {
-			return Err(Error::WrongAppendLength {
-				expected: self.size as usize,
-				got: after - before,
-			});
+			return Err(Error::WrongAppendLength(Box::new((
+				self.size as usize,
+				after - before,
+			))));
 		}
 
 		self.validity.resize_bits(self.len + 1);
@@ -135,10 +135,10 @@ impl<A: Array> ArrayFixedSizeList<A, Nullable> {
 		let after = self.child.len();
 
 		if after - before != self.size as usize {
-			return Err(Error::WrongAppendLength {
-				expected: self.size as usize,
-				got: after - before,
-			});
+			return Err(Error::WrongAppendLength(Box::new((
+				self.size as usize,
+				after - before,
+			))));
 		}
 
 		self.validity.resize_bits(self.len + 1);

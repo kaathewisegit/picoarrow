@@ -38,6 +38,7 @@ pub trait Validity: seal::Seal {
 }
 
 /// Marks arrays which might have null items
+#[derive(Debug, PartialEq)]
 pub struct Nullable;
 impl seal::Seal for Nullable {}
 impl Validity for Nullable {
@@ -46,6 +47,7 @@ impl Validity for Nullable {
 }
 
 /// Marks arrays whose items cannot be null
+#[derive(Debug, PartialEq)]
 pub struct NonNullable;
 impl seal::Seal for NonNullable {}
 impl Validity for NonNullable {
