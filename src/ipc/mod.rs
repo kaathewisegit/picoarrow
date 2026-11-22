@@ -14,11 +14,11 @@
 //! [s]: https://arrow.apache.org/docs/format/Columnar.html#ipc-streaming-format
 //! [f]: https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format
 
-mod file;
-mod stream;
+mod writer_file;
+mod writer_stream;
 
-pub use file::FileWriter;
-pub use stream::StreamWriter;
+pub use writer_file::FileWriter;
+pub use writer_stream::StreamWriter;
 
 /// Compression type
 ///
