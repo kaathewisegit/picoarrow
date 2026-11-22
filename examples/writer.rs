@@ -22,7 +22,8 @@ fn main() {
 	#[cfg(feature = "zstd")]
 	let compression = Compression::Zstd(3);
 
-	let file = File::create("target/tmp.ipc.stream").unwrap();
+	let file = File::create("target/writer.ipc")
+		.expect("failed to create an IPC file");
 	let mut writer = FileWriter::new(
 		file,
 		Schema::from_fields([
@@ -32,7 +33,7 @@ fn main() {
 		]),
 		compression,
 	)
-	.unwrap();
+	.expect("failed to create writer");
 
 	u.push(0x57);
 	u.push(0x4f);
@@ -48,23 +49,23 @@ fn main() {
 		n.push(3.0);
 		n.push(4.0);
 	})
-	.unwrap();
+	.expect("failed to push fixed-size list");
 	fs.push(|n| {
 		n.push(-1.0);
 		n.push(-2.0);
 		n.push(-3.0);
 		n.push(-4.0);
 	})
-	.unwrap();
+	.expect("failed to push fixed-size list");
 	fs.push(|n| {
 		n.push(0.0);
 		n.push(0.0);
 		n.push(0.0);
 		n.push(0.0);
 	})
-	.unwrap();
+	.expect("failed to push fixed-size list");
 
 	writer.write_batch([u.as_dyn(), b.as_dyn(), fs.as_dyn()])
-		.unwrap();
-	writer.finish().unwrap();
+		.expect("failed to write record batch");
+	writer.finish().expect("failed to finish stream");
 }

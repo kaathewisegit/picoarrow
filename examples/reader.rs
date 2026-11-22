@@ -1,44 +1,20 @@
-use std::process::ExitCode;
+use std::{fs::File, io::BufReader};
 
 use picoarrow::ipc::StreamReader;
 
-fn main() -> ExitCode {
-	let Some(path) = std::env::args().nth(1) else {
-		eprintln!("usage: reader <arrow-stream-file>");
-		return ExitCode::from(2);
-	};
+fn main() {
+	let path = std::env::args()
+		.nth(1)
+		.expect("expected an Arrow stream file");
 
-	let file = match std::fs::File::open(&path) {
-		Ok(file) => file,
-		Err(e) => {
-			eprintln!("failed to open {path}: {e}");
-			return ExitCode::FAILURE;
-		}
-	};
-
-	let mut reader = match StreamReader::new(std::io::BufReader::new(file))
-	{
-		Ok(reader) => reader,
-		Err(e) => {
-			eprintln!("failed to read schema: {e}");
-			return ExitCode::FAILURE;
-		}
-	};
+	let file = File::open(path).expect("failed to open stream file");
+	let mut reader = StreamReader::new(BufReader::new(file))
+		.expect("failed to read schema");
 
 	println!("{:#?}", reader.schema());
 
-	let result = (|| {
-		for batch in &mut reader {
-			batch?;
-		}
-		Ok::<_, picoarrow::Error>(())
-	})();
-
-	match result {
-		Ok(()) => ExitCode::SUCCESS,
-		Err(e) => {
-			eprintln!("failed to read stream: {e}");
-			ExitCode::FAILURE
-		}
+	for batch in &mut reader {
+		let batch = batch.expect("failed to read record batch");
+		println!("{batch:#?}");
 	}
 }
