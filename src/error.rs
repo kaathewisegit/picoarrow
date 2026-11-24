@@ -50,6 +50,12 @@ pub enum Error {
 	/// The stream's continuation marker was malformed
 	InvalidContinuationMarker,
 
+	/// A IPC file's magic bytes are missing or malformed
+	InvalidFileMagic,
+
+	/// An IPC file's footer is missing or malformed
+	InvalidFileFooter,
+
 	/// The record batch refers to fewer buffers than the schema requires
 	MissingBuffer,
 
@@ -168,6 +174,12 @@ impl fmt::Display for Error {
 			}
 			Error::InvalidContinuationMarker => {
 				writeln!(f, "invalid IPC continuation marker")
+			}
+			Error::InvalidFileMagic => {
+				writeln!(f, "invalid IPC file magic")
+			}
+			Error::InvalidFileFooter => {
+				writeln!(f, "invalid IPC file footer")
 			}
 			Error::MissingBuffer => {
 				writeln!(f, "missing IPC buffer")

@@ -66,8 +66,8 @@ pub enum Column {
 ///
 /// [s]: https://arrow.apache.org/docs/format/Columnar.html#ipc-streaming-format
 pub struct StreamReader<R> {
-	reader: R,
-	schema: Schema,
+	pub(crate) reader: R,
+	pub(crate) schema: Schema,
 	read_eos: bool,
 	metadata: Vec<u8>,
 	body: Vec<u8>,
@@ -161,7 +161,7 @@ impl<R: Read> Iterator for StreamReader<R> {
 /// Reads a raw IPC message into the given buffers
 ///
 /// Returns `false` if the stream ended or an end-of-stream marker was read.
-fn read_raw_message<R: Read>(
+pub(crate) fn read_raw_message<R: Read>(
 	reader: &mut R,
 	metadata_buf: &mut Vec<u8>,
 	body_buf: &mut Vec<u8>,
@@ -339,7 +339,7 @@ fn offsets(buffer: &[u8], len: usize) -> Result<&[[u8; 4]]> {
 	Ok(cast_slice::<u8, [u8; 4]>(buffer))
 }
 
-fn decode_batch(
+pub(crate) fn decode_batch(
 	schema: &Schema,
 	batch: &crate::fb::RecordBatch<'_>,
 	body: &[u8],
