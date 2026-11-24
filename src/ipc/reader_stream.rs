@@ -69,14 +69,18 @@ pub struct StreamReader<R> {
 	reader: R,
 	schema: Schema,
 	read_eos: bool,
+	metadata: Vec<u8>,
+	body: Vec<u8>,
 }
 
 impl<R: Read> StreamReader<R> {
 	/// Creates a reader and reads its schema
 	pub fn new(mut reader: R) -> Result<Self> {
-		let Some((metadata, _)) = read_raw_message(&mut reader)? else {
+		let mut metadata = Vec::new();
+		let mut body = Vec::new();
+		if !read_raw_message(&mut reader, &mut metadata, &mut body)? {
 			return Err(Error::MissingSchema);
-		};
+		}
 
 		let message = root_as_message(&metadata)
 			.map_err(|e| Error::InvalidFlatbuffer(Box::new(e)))?;
@@ -92,6 +96,8 @@ impl<R: Read> StreamReader<R> {
 			reader,
 			schema,
 			read_eos: false,
+			metadata,
+			body,
 		})
 	}
 
@@ -117,17 +123,20 @@ impl<R: Read> Iterator for StreamReader<R> {
 			return None;
 		}
 
-		let (metadata, body) = match read_raw_message(&mut self.reader)
-		{
-			Ok(Some(message)) => message,
-			Ok(None) => {
+		match read_raw_message(
+			&mut self.reader,
+			&mut self.metadata,
+			&mut self.body,
+		) {
+			Ok(true) => (),
+			Ok(false) => {
 				self.read_eos = true;
 				return None;
 			}
 			Err(e) => return Some(Err(e)),
 		};
 
-		let Ok(message) = root_as_message(&metadata) else {
+		let Ok(message) = root_as_message(&self.metadata) else {
 			return Some(Err(Error::InvalidMessage));
 		};
 		Some(match message.header_type() {
@@ -142,19 +151,23 @@ impl<R: Read> Iterator for StreamReader<R> {
 						Error::InvalidRecordBatchMessage,
 					));
 				};
-				decode_batch(&self.schema, &batch, &body)
+				decode_batch(&self.schema, &batch, &self.body)
 			}
 			_ => Err(Error::UnsupportedMessageType),
 		})
 	}
 }
 
-// TODO: reuse buffers instead of returning newly allocated Vec<u8>
+/// Reads a raw IPC message into the given buffers
+///
+/// Returns `false` if the stream ended or an end-of-stream marker was read.
 fn read_raw_message<R: Read>(
 	reader: &mut R,
-) -> Result<Option<(Vec<u8>, Vec<u8>)>> {
+	metadata_buf: &mut Vec<u8>,
+	body_buf: &mut Vec<u8>,
+) -> Result<bool> {
 	let Some(prefix) = read_exact_opt(reader)? else {
-		return Ok(None);
+		return Ok(false);
 	};
 
 	if prefix != [0xff; 4] {
@@ -167,22 +180,22 @@ fn read_raw_message<R: Read>(
 	let len = i32::from_le_bytes(len_buf);
 
 	if len == 0 {
-		return Ok(None);
+		return Ok(false);
 	}
 
-	let mut metadata = vec![0; usize_from(i64::from(len))?];
-	reader.read_exact(&mut metadata)
+	metadata_buf.clear();
+	metadata_buf.resize(usize_from(i64::from(len))?, 0);
+	reader.read_exact(metadata_buf)
 		.map_err(|e| Error::ReadFailed(e.into()))?;
 
-	let message = root_as_message(&metadata)
+	let message = root_as_message(metadata_buf)
 		.map_err(|e| Error::InvalidFlatbuffer(Box::new(e)))?;
-	let mut body = vec![0; usize_from(message.bodyLength())?];
-	reader.read_exact(&mut body)
+	body_buf.clear();
+	body_buf.resize(usize_from(message.bodyLength())?, 0);
+	reader.read_exact(body_buf)
 		.map_err(|e| Error::ReadFailed(e.into()))?;
 
-	// Validation of the message type is left to the callers, which must keep
-	// `metadata` alive while its flatbuffers are in use.
-	Ok(Some((metadata, body)))
+	Ok(true)
 }
 
 /// Reads four bytes, returning `None` only if the stream ended before the
@@ -469,37 +482,57 @@ fn decode_column(
 			let validity = body.next()?;
 			let offsets = offsets(&body.next()?, len)?.to_vec();
 			let values = body.next()?;
-			let mut arr = ArrayUtf8::<Nullable>::new();
 
-			for i in 0..len {
-				let start = usize_from(i64::from(
-					i32::from_le_bytes(offsets[i]),
-				))?;
-				let end = usize_from(i64::from(
-					i32::from_le_bytes(offsets[i + 1]),
-				))?;
-				let value = slice(&values, start, end)?;
-				if field.nullable && !bit(&validity, i) {
-					arr.push_null();
-				} else {
+			if field.nullable {
+				let mut arr = ArrayUtf8::<Nullable>::new();
+				for i in 0..len {
+					let start = usize_from(i64::from(
+						i32::from_le_bytes(offsets[i]),
+					))?;
+					let end = usize_from(i64::from(
+						i32::from_le_bytes(
+							offsets[i + 1],
+						),
+					))?;
+					let value = slice(&values, start, end)?;
 					let value =
 						std::str::from_utf8(value)
 							.map_err(|e| {
 								Error::InvalidUtf8(e.into())
 							})?;
-					arr.push_some(value)?;
+					if bit(&validity, i) {
+						arr.push_some(value)?;
+					} else {
+						arr.push_null();
+					}
 				}
-			}
-
-			if !field.nullable && null_count != 0 {
-				return Err(Error::NullsInNonNullableField);
-			}
-
-			Ok(if field.nullable {
-				Column::Utf8(arr)
+				Ok(Column::Utf8(arr))
 			} else {
-				Column::Utf8NonNullable(to_non_null_utf8(arr)?)
-			})
+				if null_count != 0 {
+					return Err(
+						Error::NullsInNonNullableField,
+					);
+				}
+				let mut arr = ArrayUtf8::<NonNullable>::new();
+				for i in 0..len {
+					let start = usize_from(i64::from(
+						i32::from_le_bytes(offsets[i]),
+					))?;
+					let end = usize_from(i64::from(
+						i32::from_le_bytes(
+							offsets[i + 1],
+						),
+					))?;
+					let value = slice(&values, start, end)?;
+					let value =
+						std::str::from_utf8(value)
+							.map_err(|e| {
+								Error::InvalidUtf8(e.into())
+							})?;
+					arr.push(value)?;
+				}
+				Ok(Column::Utf8NonNullable(arr))
+			}
 		}
 		DataType::FixedSizeBinary { byte_width } => {
 			let validity = body.next()?;
@@ -681,23 +714,6 @@ fn to_non_null_binary(
 		return Err(Error::NullsInNonNullableField);
 	}
 	let mut result = ArrayBinary::<NonNullable>::new();
-	for i in 0..arr.len() {
-		let Some(value) = arr.get(i) else {
-			return Err(Error::ArrayLengthMismatch);
-		};
-		result.push(value)?;
-	}
-	Ok(result)
-}
-
-// TODO: remove
-fn to_non_null_utf8(
-	arr: ArrayUtf8<Nullable>,
-) -> Result<ArrayUtf8<NonNullable>> {
-	if arr.null_count() != 0 {
-		return Err(Error::NullsInNonNullableField);
-	}
-	let mut result = ArrayUtf8::<NonNullable>::new();
 	for i in 0..arr.len() {
 		let Some(value) = arr.get(i) else {
 			return Err(Error::ArrayLengthMismatch);
